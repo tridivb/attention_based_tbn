@@ -5,19 +5,19 @@ import numpy as np
 
 
 class Resnet(nn.Module):
-    def __init__(self, model, num_classes, mode, in_channels):
+    def __init__(self, model_name, modality, in_channels):
         super(Resnet, self).__init__()
 
-        if model == "resnet18":
+        if model_name == "resnet18":
             self.model = models.resnet18(pretrained=True)
-        elif model == "resnet34":
+        elif model_name == "resnet34":
             self.model = models.resnet34(pretrained=True)
-        elif model == "resnet50":
+        elif model_name == "resnet50":
             self.model = models.resnet50(pretrained=True)
-        elif model == "resnet101":
+        elif model_name == "resnet101":
             self.model = models.resnet101(pretrained=True)
 
-        if mode != "RGB":
+        if modality != "RGB":
             self.model.Conv2d_1a_3x3.conv = nn.Conv2d(
                 in_channels,
                 self.model.features[0].out_channels,

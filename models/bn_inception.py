@@ -28,11 +28,11 @@ pretrained_settings = {
 
 
 class BNInception(nn.Module):
-    def __init__(self, in_channels, num_classes=1000):
+    def __init__(self, num_classes=1000):
         super(BNInception, self).__init__()
         inplace = True
         self.conv1_7x7_s2 = nn.Conv2d(
-            in_channels, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3)
+            3, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3)
         )
         self.conv1_7x7_s2_bn = nn.BatchNorm2d(64, affine=True)
         self.conv1_relu_7x7 = nn.ReLU(inplace)
@@ -394,7 +394,7 @@ class BNInception(nn.Module):
         )
         self.inception_5b_pool_proj_bn = nn.BatchNorm2d(128, affine=True)
         self.inception_5b_relu_pool_proj = nn.ReLU(inplace)
-        # self.last_linear = nn.Linear (1024, num_classes)
+        self.last_linear = nn.Linear(1024, num_classes)
 
         self.feature_size = 1024
 
@@ -990,3 +990,25 @@ class BNInception(nn.Module):
         x = self.features(input)
         x, feat = self.logits(x)
         return x, feat
+
+
+def bninception(in_channels, modality, pretrained="imagenet"):
+    """
+        BNInception model architecture from <https://arxiv.org/pdf/1502.03167.pdf>`_ paper.
+    """
+    model = BNInception()
+    if pretrained is not None:
+        settings = pretrained_settings["bninception"][pretrained]
+        model.load_state_dict(model_zoo.load_url(settings["url"]))
+        model.input_space = settings["input_space"]
+        model.input_size = settings["input_size"]
+        model.input_range = settings["input_range"]
+        model.mean = settings["mean"]
+        model.std = settings["std"]
+
+    if modality != "RGB":
+        model.conv1_7x7_s2 = nn.Conv2d(
+            in_channels, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3)
+        )
+
+    return model

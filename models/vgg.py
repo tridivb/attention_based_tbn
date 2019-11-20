@@ -6,16 +6,16 @@ from torch.hub import load_state_dict_from_url
 
 
 class VGG(nn.Module):
-    def __init__(self, model, num_classes, modality, in_channels, pretrained_url=None):
+    def __init__(self, model_name, modality, in_channels):
         super(VGG, self).__init__()
 
-        if model == "vgg16":
+        if model_name == "vgg16":
             self.model = models.vgg16(pretrained=True)
-        elif model == "vgg16bn":
+        elif model_name == "vgg16bn":
             self.model = models.vgg16_bn(pretrained=True)
-        elif model == "vgg11":
+        elif model_name == "vgg11":
             self.model = models.vgg11(pretrained=True)
-        elif model == "vgg11bn":
+        elif model_name == "vgg11bn":
             self.model = models.vgg11_bn(pretrained=True)
 
         if modality != "RGB":

@@ -1,6 +1,6 @@
 import torch
 
-from model import TBNModel
+from models.model import TBNModel
 
 # Supported model types
 _MODEL_TYPES = {
@@ -12,7 +12,7 @@ _MODEL_TYPES = {
     "resnet34": TBNModel,
     "resnet50": TBNModel,
     "resnet101": TBNModel,
-    "bninception": TBNModel
+    "bninception": TBNModel,
 }
 
 
