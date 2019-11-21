@@ -1,19 +1,10 @@
 #!/usr/bin/env python
 
 import argparse
-import torch
-from torch.utils.data import DataLoader
-import torch.optim as optim
 import numpy as np
 import os
-import sys
 import time
-import datetime
-import json
 from tensorboardX import SummaryWriter
-from tqdm import tqdm
-from parse import parse
-from epic_kitchens.meta import training_labels
 from omegaconf import OmegaConf
 
 from models.model import Model
@@ -22,12 +13,18 @@ from models.model import Model
 def parse_args():
     parser = argparse.ArgumentParser(description="main.py")
     # parser.add_argument(
-    #     "--cfg",
-    #     dest="cfg",
-    #     help="cfg model file (/path/to/model_config.yaml)",
-    #     default=config.cfg_file,
+    #     "mode",
+    #     choices={"train", "test"},
+    #     help="mode to process",
     #     type=str,
     # )
+    parser.add_argument(
+        "--cfg",
+        dest="cfg",
+        help="cfg model file (/path/to/model_config.yaml)",
+        default="./config/config.yaml",
+        type=str,
+    )
     # parser.add_argument(
     #     "--wts",
     #     dest="weights",
@@ -57,13 +54,6 @@ def parse_args():
     #     type=str,
     # )
     # parser.add_argument(
-    #     "--sample_fps",
-    #     dest="sample_fps",
-    #     help="fps_value_to_sample_videos",
-    #     default=config.sample_fps,
-    #     type=int,
-    # )
-    # parser.add_argument(
     #     "--out_path",
     #     dest="out_path",
     #     help="path_to_save_detections",
@@ -71,14 +61,8 @@ def parse_args():
     #     type=str,
     # )
     # parser.add_argument(
-    #     "mode",
-    #     choices={"rgb", "flow", "audio", "fused"},
-    #     help="mode to process",
-    #     type=str,
-    # )
-    # parser.add_argument(
     #     "--model",
-    #     choices={"vgg11", "vgg11bn", "vgg16", "vgg16bn", "resnet18", "resnet34", "resnet50", "resnet101", "inception"},
+    #     choices={"vgg11", "vgg11bn", "vgg16", "vgg16bn", "resnet18", "resnet34", "resnet50", "resnet101", "bninception"},
     #     help="model name",
     #     default="vgg16bn",
     #     type=str,
@@ -96,7 +80,7 @@ def parse_args():
 
 def main(args):
 
-    cfg = OmegaConf.load("./config/config.yaml")
+    cfg = OmegaConf.load(args.cfg)
     
     # if args.target == "verb":
     #     num_classes = 125

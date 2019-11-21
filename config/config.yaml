@@ -1,3 +1,4 @@
+# Dataset Parameters
 DATA:
   DATA_DIR: ""
   FRAME_DIR_PREFIX: ""
@@ -11,6 +12,7 @@ DATA:
   OUT_FPS: 30
   FRAME_FILE_EXT: "jpg"
   AUDIO_FILE_EXT: "wav"
+  NUM_SEGMENTS: 3
   FLOW_WIN_LENGTH: 5
   SAMPLING_RATE: 24000
   AUDIO_LENGTH: 1.28
@@ -25,25 +27,32 @@ DATA:
   TEST_SCALE_SIZE: 256
   TEST_CROP_SIZE: 256
   VIDEO_LIST: ""
+# Model Parameters
 MODEL:
   ARCH: "resnet101"
-  NUM_CLASSES: [101]
+  NUM_CLASSES: {
+    verb: 127,
+    noun: 325
+  }
   CHECKPOINT: ""
+# Train Parameters
 TRAIN:
   TRAIN_ENABLE: True
   OPTIM: "sgd"
   BATCH_SIZE: 1
   EPOCHS: 25
   LR: 1e-4
-  LR_DECAY: 1e-6
   MOMENTUM: 0.9
+  WEIGHT_DECAY: 0
+  LR_DECAY: 1e-6
+  GAMMA: 0.1
   FREEZE_BASE: False
   FREEZE_FUSION: False
-  PRE_TRAINED: ""
+# Test Parameters
 TEST:
   BATCH_SIZE: 10
   PRE_TRAINED: ""
-RUN:
-  LOG_DIR: ""
-  NUM_WORKERS: 8
-  NUM_GPUS: 1
+# Misc
+LOG_DIR: ""
+NUM_WORKERS: 8
+NUM_GPUS: 1

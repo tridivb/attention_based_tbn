@@ -17,28 +17,22 @@ class Video_Dataset(Dataset):
         self,
         cfg,
         vid_list: list,
-        root_dir: str,
-        frame_dir: str,
-        audio_dir: str,
         modality: list = ["RGB"],
-        mode: str = "train",
-        vis_file_ext: str = "jpg",
-        aud_file_ext: str = "wav",
-        aud_sampling_rate: int = 240000,
-        num_segments: int = 3
+        mode: str = "train"
     ):
         self.cfg = cfg
-        self.root_dir = root_dir
-        self.frame_dir = frame_dir
-        self.audio_dir = audio_dir
+        self.root_dir = cfg.DATA.DATA_DIR
+        self.frame_dir = cfg.DATA.FRAME_DIR_PREFIX
+        self.audio_dir = cfg.DATA.AUDIO_DIR_PREFIX
 
         self.vid_list = vid_list
-        self.vis_file_ext = vis_file_ext
-        self.aud_file_ext = aud_file_ext
+        self.vis_file_ext = cfg.DATA.FRAME_FILE_EXT
+        self.aud_file_ext = cfg.DATA.AUDIO_FILE_EXT
 
         self.modality = modality
         self.mode = mode
-        self.num_segments = num_segments
+        self.num_segments = cfg.DATA.NUM_SEGMENTS
+        self.sampling_rate = cfg.DATA.AUDIO_SAMPLING_RATE
 
     def __len__(self) -> int:
         return self.vid_list.shape[0]
@@ -53,8 +47,8 @@ class Video_Dataset(Dataset):
         vid_record = EpicVideoRecord(self.vid_list.iloc[index])
         vid_id = vid_record.untrimmed_video_name()
 
-        self.frame_path = os.path.join(self.cfg.DATA.DATA_DIR, self.cfg.DATA.FRAME_DIR_PREFIX, self.vid_id)
-        self.audio_path = os.path.join(self.cfg.DATA.DATA_DIR, self.cfg.DATA.AUDIO_DIR_PREFIX, self.vid_id)
+        self.frame_path = os.path.join(self.cfg.DATA.DATA_DIR, self.cfg.DATA.FRAME_DIR_PREFIX, vid_id)
+        self.audio_path = os.path.join(self.cfg.DATA.DATA_DIR, self.cfg.DATA.AUDIO_DIR_PREFIX, vid_id)
 
         indices = {}
         for m in self.modality:
