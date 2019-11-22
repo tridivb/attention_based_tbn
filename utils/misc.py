@@ -14,13 +14,13 @@ def calculate_loss(criterion, target, preds):
 
     return loss
 
-def calculate_topk_accuracy(preds, target, topk):
+def calculate_topk_accuracy(out, target, topk=[1,]):
     maxk = max(topk)
     batch_size = target.size(0)
 
-    _, pred = output.topk(maxk, 1, True, True)
-    pred = pred.t()
-    correct = pred.eq(target.view(1, -1).expand_as(pred))
+    _, preds = out.topk(maxk, 1, True, True)
+    preds = preds.t()
+    correct = preds.eq(target.view(1, -1).expand_as(preds))
 
     acc = {}
     for k in topk:
