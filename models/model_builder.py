@@ -12,11 +12,12 @@ _MODEL_TYPES = {
     "resnet34": TBNModel,
     "resnet50": TBNModel,
     "resnet101": TBNModel,
+    "resnet152": TBNModel,
     "bninception": TBNModel,
 }
 
 
-def build_model(cfg):
+def build_model(cfg, modality):
     """
     Builds the model.
     Args:
@@ -31,7 +32,7 @@ def build_model(cfg):
     ), "Cannot use more GPU devices than available"
 
     # Construct the model
-    model = _MODEL_TYPES[cfg.MODEL.ARCH](cfg)
+    model = TBNModel(cfg, modality)
     # Determine the GPU used by the current process
     cur_device = torch.cuda.current_device()
     # Transfer the model to the current GPU device

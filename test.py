@@ -1,6 +1,5 @@
 import torch
 from torch.utils.data.dataloader import DataLoader
-import torch.optim as optim
 import numpy as np
 import os
 from tensorboardX import SummaryWriter

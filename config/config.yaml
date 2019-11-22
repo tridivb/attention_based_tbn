@@ -29,7 +29,7 @@ DATA:
   VIDEO_LIST: ""
 # Model Parameters
 MODEL:
-  ARCH: "resnet101"
+  ARCH: "bninception"
   NUM_CLASSES: {
     verb: 127,
     noun: 325
@@ -44,12 +44,13 @@ TRAIN:
   LR: 1e-4
   MOMENTUM: 0.9
   WEIGHT_DECAY: 0
+  LR_STEPS: [20, 40]
   LR_DECAY: 1e-6
-  GAMMA: 0.1
   FREEZE_BASE: False
   FREEZE_FUSION: False
 # Test Parameters
 TEST:
+  TEST_ENABLE: True
   BATCH_SIZE: 10
   PRE_TRAINED: ""
 # Misc

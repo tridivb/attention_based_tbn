@@ -394,7 +394,7 @@ class BNInception(nn.Module):
         )
         self.inception_5b_pool_proj_bn = nn.BatchNorm2d(128, affine=True)
         self.inception_5b_relu_pool_proj = nn.ReLU(inplace)
-        self.last_linear = nn.Linear(1024, num_classes)
+        # self.last_linear = nn.Linear(1024, num_classes)
 
         self.feature_size = 1024
 
@@ -982,14 +982,13 @@ class BNInception(nn.Module):
         adaptiveAvgPoolWidth = features.shape[2]
         x = F.avg_pool2d(features, kernel_size=adaptiveAvgPoolWidth)
         x = x.view(x.size(0), -1)
-        feat = x.clone()
-        x = self.last_linear(x)
-        return x, feat
+        # x = self.last_linear(x)
+        return x
 
     def forward(self, input):
         x = self.features(input)
-        x, feat = self.logits(x)
-        return x, feat
+        x = self.logits(x)
+        return x
 
 
 def bninception(in_channels, modality, pretrained="imagenet"):
@@ -999,7 +998,10 @@ def bninception(in_channels, modality, pretrained="imagenet"):
     model = BNInception()
     if pretrained is not None:
         settings = pretrained_settings["bninception"][pretrained]
-        model.load_state_dict(model_zoo.load_url(settings["url"]))
+        data_dict = model_zoo.load_url(settings["url"])
+        del data_dict["last_linear.weight"]
+        del data_dict["last_linear.bias"]
+        model.load_state_dict(data_dict)        
         model.input_space = settings["input_space"]
         model.input_size = settings["input_size"]
         model.input_range = settings["input_range"]

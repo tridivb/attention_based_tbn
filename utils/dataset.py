@@ -10,7 +10,7 @@ import librosa as lr
 
 from parse import parse
 import pandas as pd
-from epic_record import EpicVideoRecord
+from .epic_record import EpicVideoRecord
 
 class Video_Dataset(Dataset):
     def __init__(

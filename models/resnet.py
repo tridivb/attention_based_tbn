@@ -16,14 +16,17 @@ class Resnet(nn.Module):
             self.model = models.resnet50(pretrained=True)
         elif model_name == "resnet101":
             self.model = models.resnet101(pretrained=True)
+        elif model_name == "resnet152":
+            self.model = models.resnet152(pretrained=True)
 
         if modality != "RGB":
-            self.model.Conv2d_1a_3x3.conv = nn.Conv2d(
+            self.model.conv1 = nn.Conv2d(
                 in_channels,
-                self.model.features[0].out_channels,
-                kernel_size=self.model.features[0].kernel_size,
-                stride=self.model.features[0].stride,
-                padding=self.model.features[0].padding,
+                self.model.conv1.out_channels,
+                kernel_size=self.model.conv1.kernel_size,
+                stride=self.model.conv1.stride,
+                padding=self.model.conv1.padding,
+                bias=self.model.conv1.bias,
             )
 
         self.feature_size = self.model.fc.in_features
