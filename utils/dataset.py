@@ -7,9 +7,9 @@ from torch.utils.data import Dataset
 from torch import Tensor
 import torchvision.transforms.functional as F
 import librosa as lr
-
 from parse import parse
 import pandas as pd
+
 from .epic_record import EpicVideoRecord
 
 class Video_Dataset(Dataset):
@@ -25,7 +25,6 @@ class Video_Dataset(Dataset):
         self.frame_dir = cfg.DATA.FRAME_DIR_PREFIX
         self.audio_dir = cfg.DATA.AUDIO_DIR_PREFIX
 
-        self.vid_list = vid_list
         self.vis_file_ext = cfg.DATA.FRAME_FILE_EXT
         self.aud_file_ext = cfg.DATA.AUDIO_FILE_EXT
 
@@ -34,8 +33,18 @@ class Video_Dataset(Dataset):
         self.num_segments = cfg.DATA.NUM_SEGMENTS
         self.sampling_rate = cfg.DATA.AUDIO_SAMPLING_RATE
 
+        annotation_file = os.path.join(self.root_dir, "annotations", cfg.DATA.ANNOTATION_FILE)
+
+        if mode in ["train", "val"]:
+            if annotation_file.endswith("csv"):
+                self.annotations = pd.read_csv(annotation_file)
+            elif annotation_file.endswith("pkl"):
+                self.annotations = pd.read_pickle(annotation_file)
+
+        self.annotations = self.annotations.query("video_id in @vid_list")
+
     def __len__(self) -> int:
-        return self.vid_list.shape[0]
+        return self.annotations.shape[0]
 
     def __getitem__(self, index: int) -> (Tensor, int):
         """
@@ -44,7 +53,7 @@ class Video_Dataset(Dataset):
 
         data = {}
 
-        vid_record = EpicVideoRecord(self.vid_list.iloc[index])
+        vid_record = EpicVideoRecord(self.annotations.iloc[index])
         vid_id = vid_record.untrimmed_video_name()
 
         self.frame_path = os.path.join(self.cfg.DATA.DATA_DIR, self.cfg.DATA.FRAME_DIR_PREFIX, vid_id)

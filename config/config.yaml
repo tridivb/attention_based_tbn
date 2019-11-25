@@ -1,6 +1,7 @@
 # Dataset Parameters
 DATA:
   DATA_DIR: ""
+  ANNOTATION_FILE: "EPIC_train_action_labels.csv"
   FRAME_DIR_PREFIX: ""
   AUDIO_DIR_PREFIX: ""
   DATASET: "epic"

@@ -19,33 +19,33 @@ def train(cfg, logger, modality):
     
     epochs = cfg.TRAIN.EPOCHS
     
-    model = build_model(cfg, modality)
+    # model = build_model(cfg, modality)
 
-    if cfg.MODEL.CHECKPOINT:
-        model.load_state_dict(torch.load(cfg.MODEL.CHECKPOINT))
+    # if cfg.MODEL.CHECKPOINT:
+    #     model.load_state_dict(torch.load(cfg.MODEL.CHECKPOINT))
 
-    if cfg.TRAIN.OPTIM.lower() == "sgd":
-        optimizer = optim.SGD(model.parameters(), cfg.TRAIN.LR, momentum=cfg.TRAIN.MOMENTUM, weight_decay=cfg.TRAIN.WEIGHT_DECAY)
-        lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=cfg.TRAIN.LR_STEPS, gamma=cfg.TRAIN.LR_DECAY)
-    elif cfg.TRAIN.OPTIM.lower() == "adam":
-        optimizer = optim.Adam(model.parameters(), cfg.TRAIN.LR, betas=(0.9, 0.999), weight_decay=cfg.TRAIN.WEIGHT_DECAY)
-        lr_scheduler = None
+    # if cfg.TRAIN.OPTIM.lower() == "sgd":
+    #     optimizer = optim.SGD(model.parameters(), cfg.TRAIN.LR, momentum=cfg.TRAIN.MOMENTUM, weight_decay=cfg.TRAIN.WEIGHT_DECAY)
+    #     lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=cfg.TRAIN.LR_STEPS, gamma=cfg.TRAIN.LR_DECAY)
+    # elif cfg.TRAIN.OPTIM.lower() == "adam":
+    #     optimizer = optim.Adam(model.parameters(), cfg.TRAIN.LR, betas=(0.9, 0.999), weight_decay=cfg.TRAIN.WEIGHT_DECAY)
+    #     lr_scheduler = None
 
-    criterion = torch.nn.CrossEntropyLoss()
+    # criterion = torch.nn.CrossEntropyLoss()
 
-    model, criterion = model.to(device), criterion.to(device)
-
-    print(model)
+    # model, criterion = model.to(device), criterion.to(device)
 
     # TODO - Read video list file
     vid_list = None
 
     dataset = Video_Dataset(cfg, vid_list, modality, mode="train")
+
+    print(len(dataset))
     
     # TODO - Create train and validation split
 
-    train_loader = DataLoader(dataset, num_workers=cfg.NUM_WORKERS)
-    val_loader = DataLoader(dataset, num_workers=cfg.NUM_WORKERS)
+    # train_loader = DataLoader(dataset, num_workers=cfg.NUM_WORKERS)
+    # val_loader = DataLoader(dataset, num_workers=cfg.NUM_WORKERS)
 
     start_time = time.time()
 
