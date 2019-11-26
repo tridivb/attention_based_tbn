@@ -1,4 +1,5 @@
 import torch
+import torchvision
 from torch.utils.data.dataloader import DataLoader
 import torch.optim as optim
 import numpy as np
@@ -8,6 +9,7 @@ from tensorboardX import SummaryWriter
 from models.model_builder import build_model
 from utils.dataset import Video_Dataset
 from utils.misc import *
+from utils.transform import *
 
 
 def train(cfg, logger, modality):
@@ -36,11 +38,19 @@ def train(cfg, logger, modality):
     # model, criterion = model.to(device), criterion.to(device)
 
     # TODO - Read video list file
-    vid_list = None
+    with open(cfg.TRAIN.VID_LIST) as f:
+        train_list = [x.strip() for x in f.readlines() if len(x.strip()) > 0]
 
-    dataset = Video_Dataset(cfg, vid_list, modality, mode="train")
+    with open(cfg.TEST.VID_LIST) as f:
+        val_list = [x.strip() for x in f.readlines() if len(x.strip()) > 0]
 
-    print(len(dataset))
+    transforms = torchvision.transforms.Compose([CenterCrop(256), ToTensor()])
+
+    dataset = Video_Dataset(cfg, train_list, modality, transform=transforms, mode="train")
+
+    data = dataset[0]
+    
+    print(data["RGB"].shape, data["Flow"].shape, data["Audio"].shape)
     
     # TODO - Create train and validation split
 

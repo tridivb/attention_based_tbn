@@ -1,9 +1,9 @@
 # Dataset Parameters
 DATA:
-  DATA_DIR: ""
-  ANNOTATION_FILE: "EPIC_train_action_labels.csv"
-  FRAME_DIR_PREFIX: ""
-  AUDIO_DIR_PREFIX: ""
+  DATA_DIR: "/media/data/tridiv"
+  ANNOTATION_FILE: "/media/data/tridiv/epic_kitchens/annotations/EPIC_train_action_labels.csv"
+  FRAME_DIR_PREFIX: "epic_symlinks"
+  AUDIO_DIR_PREFIX: "epic_kitchens/EPIC_KITCHENS_2018/tbn/audio"
   DATASET: "epic"
   USE_RGB: True
   USE_FLOW: True
@@ -38,6 +38,7 @@ MODEL:
   CHECKPOINT: ""
 # Train Parameters
 TRAIN:
+  VID_LIST: "./train_split.txt"
   TRAIN_ENABLE: True
   OPTIM: "sgd"
   BATCH_SIZE: 1
@@ -51,6 +52,7 @@ TRAIN:
   FREEZE_FUSION: False
 # Test Parameters
 TEST:
+  VID_LIST: "./val_split.txt"
   TEST_ENABLE: True
   BATCH_SIZE: 10
   PRE_TRAINED: ""

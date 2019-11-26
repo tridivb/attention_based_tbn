@@ -1,4 +1,3 @@
-
 class VideoRecord(object):
     def __init__(self, row):
         self._data = row

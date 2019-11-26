@@ -57,7 +57,7 @@ def main(args):
         modality.append("RGB")
     if cfg.DATA.USE_FLOW:
         modality.append("Flow")
-    if cfg.DATA.USE_RGB:
+    if cfg.DATA.USE_AUDIO:
         modality.append("Audio")
 
     # Create log directory
