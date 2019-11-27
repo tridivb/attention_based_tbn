@@ -20,7 +20,7 @@ class Video_Dataset(Dataset):
         cfg,
         vid_list: list,
         modality: list = ["RGB"],
-        transform=[ToTensor()],
+        transform=None,
         mode: str = "train",
     ):
         self.cfg = cfg
@@ -81,7 +81,7 @@ class Video_Dataset(Dataset):
 
         for m in self.modality:
             data[m] = self._get_frames(m, vid_id, indices)
-            data[m] = self._transform_data(data[m])
+            data[m] = self._transform_data(data[m], m)
 
         data["target"] = vid_record.label
 
@@ -128,7 +128,10 @@ class Video_Dataset(Dataset):
             frame = []
             for ind_offset in range(self.frame_len[modality]):
                 frame.extend(self._read_frames(ind + ind_offset, vid_id, modality))
-            frame = np.concatenate(frame, axis=2)
+            if modality == "Audio":
+                frame = frame[0]
+            else:
+                frame = np.concatenate(frame, axis=2)
             frames.extend(frame[None, ...])
 
         frames = np.stack(frames, axis=0)
@@ -158,7 +161,7 @@ class Video_Dataset(Dataset):
         elif modality == "Audio":
             sample = self._get_audio(frame_idx, vid_id)
             spec = self._get_spectrogram(sample)
-            return [spec[..., None]]
+            return [spec]
 
     def _get_audio(self, frame_idx, vid_id):
         start_sec = (frame_idx / self.cfg.DATA.IN_FPS) - (
@@ -206,9 +209,10 @@ class Video_Dataset(Dataset):
 
         spec = np.log(np.real(spec * np.conj(spec)) + eps)
         return spec
-
-    def _transform_data(self, img_stack):
         
-        img_stack = self.transform(img_stack)
+
+    def _transform_data(self, img_stack, modality):
+        
+        img_stack = self.transform[modality](img_stack)
 
         return img_stack

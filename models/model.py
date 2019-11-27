@@ -1,12 +1,12 @@
 import torch
 import torch.nn as nn
-from torchvision import models
+import torchvision
 import numpy as np
+
 from models.vgg import VGG
 from models.resnet import Resnet
 from models.bn_inception import bninception
-from collections import OrderedDict
-
+from utils.transform import MultiScaleCrop, RandomHorizontalFlip, ToTensor
 
 class TBNModel(nn.Module):
     def __init__(self, cfg, modality):
@@ -71,6 +71,31 @@ class TBNModel(nn.Module):
         out = self.classifier(features)
         
         return out
+
+    def set_transforms(self):
+        transforms = {}
+
+        for m in self.modality:
+            if m == "RGB":
+                transforms[m] = torchvision.transforms.Compose(
+                    [
+                        MultiScaleCrop(224, [1, 0.875, 0.75, 0.66]),
+                        RandomHorizontalFlip(prob=0.5, is_flow=False),
+                        ToTensor(),
+                    ]
+                )
+            elif m == "Flow":
+                transforms[m] = torchvision.transforms.Compose(
+                    [
+                        MultiScaleCrop(224, [1, 0.875, 0.75, 0.66]),
+                        RandomHorizontalFlip(prob=0.5, is_flow=True),
+                        ToTensor(),
+                    ]
+                )
+            elif m == "Audio":
+                transforms[m] = torchvision.transforms.Compose([ToTensor()])
+
+        return transforms
 
 class Classifier(nn.Module):
     def __init__(self, num_classes, in_features):

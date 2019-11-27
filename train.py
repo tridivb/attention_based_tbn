@@ -18,9 +18,9 @@ def train(cfg, logger, modality):
         device = torch.device("cuda")
     else:
         device = torch.device("cpu")
-    
+
     epochs = cfg.TRAIN.EPOCHS
-    
+
     # model = build_model(cfg, modality)
 
     # if cfg.MODEL.CHECKPOINT:
@@ -44,14 +44,60 @@ def train(cfg, logger, modality):
     with open(cfg.TEST.VID_LIST) as f:
         val_list = [x.strip() for x in f.readlines() if len(x.strip()) > 0]
 
-    transforms = torchvision.transforms.Compose([CenterCrop(256), ToTensor()])
-
-    dataset = Video_Dataset(cfg, train_list, modality, transform=transforms, mode="train")
-
-    data = dataset[0]
     
+    train_transforms = {}
+    val_transforms = {}
+    for m in modality:
+        if m == "RGB":
+            train_transforms[m] = torchvision.transforms.Compose(
+                [
+                    MultiScaleCrop(cfg.DATA.TRAIN_CROP_SIZE, [1, 0.875, 0.75, 0.66]),
+                    RandomHorizontalFlip(prob=0.5, is_flow=False),
+                    ToTensor(),
+                    Normalize(cfg.DATA.RGB_MEAN, cfg.DATA.RGB_STD),
+                ]
+            )
+            val_transforms[m] = torchvision.transforms.Compose(
+                [
+                    Rescale(cfg.DATA.TEST_SCALE_SIZE, is_flow=False),
+                    CenterCrop(cfg.DATA.TEST_CROP_SIZE),
+                    ToTensor(),
+                    Normalize(cfg.DATA.RGB_MEAN, cfg.DATA.RGB_STD),
+                ]
+            )
+        elif m == "Flow":
+            train_transforms[m] = torchvision.transforms.Compose(
+                [
+                    MultiScaleCrop(cfg.DATA.TRAIN_CROP_SIZE, [1, 0.875, 0.75, 0.66], is_flow=True),
+                    RandomHorizontalFlip(prob=0.5, is_flow=True),
+                    ToTensor(),
+                    Normalize(cfg.DATA.FLOW_MEAN, cfg.DATA.FLOW_STD),
+                ]
+            )
+            val_transforms[m] = torchvision.transforms.Compose(
+                [
+                    Rescale(cfg.DATA.TEST_SCALE_SIZE, is_flow=True),
+                    CenterCrop(cfg.DATA.TEST_CROP_SIZE),
+                    ToTensor(),
+                ]
+            )
+        elif m == "Audio":
+            train_transforms[m] = torchvision.transforms.Compose([ToTensor()])
+            val_transforms[m] = torchvision.transforms.Compose([ToTensor()])
+        
+
+    train_dataset = Video_Dataset(
+        cfg, train_list, modality, transform=train_transforms, mode="train"
+    )
+
+    val_dataset = Video_Dataset(
+        cfg, train_list, modality, transform=val_transforms, mode="val"
+    )
+
+    data = train_dataset[0]
+
     print(data["RGB"].shape, data["Flow"].shape, data["Audio"].shape)
-    
+
     # TODO - Create train and validation split
 
     # train_loader = DataLoader(dataset, num_workers=cfg.NUM_WORKERS)
