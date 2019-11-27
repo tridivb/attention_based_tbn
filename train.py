@@ -131,10 +131,19 @@ def train(cfg, logger, modality):
             optimizer.zero_grad()
             target = input["target"]
             for m in modality:
+                b, n, c, h, w = input[m].shape
+                # input[m] = input[m].to(device).view(b * n, c, h, w)
+                # Stack the batch of frames for each segment
                 input[m] = input[m].to(device)
-            for key in target.keys():
-                target[key] = target[key].to(device)
-            out = model(input, num_segments = cfg.DATA.NUM_SEGMENTS)
+                frames = []
+                for i in range(n):
+                    frames.extend([input[m][:, i, :, :, :]])
+
+                input[m] = torch.cat(frames, dim=0)
+                
+            for cls in target.keys():
+                target[cls] = target[cls].repeat(cfg.DATA.NUM_SEGMENTS).to(device)
+            out = model(input)
 
             loss = calculate_loss(criterion, target, out)
             train_loss += loss.item()

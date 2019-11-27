@@ -55,20 +55,19 @@ class TBNModel(nn.Module):
         for param in getattr(self, modality):
             param.requires_grad = requires_grad
 
-    def forward(self, input, num_segments=3):
-        for i in range(num_segments):
-            features = []
-            for m in self.modality:
-                batch_size = input[m].shape[0]            
-                base_model = getattr(self, "Base_{}".format(m))
-                features.extend([base_model(input[m][:, i, :, :, :]).reshape(batch_size, -1)])
-            features = torch.cat(features, dim=1)
-            print(features.shape)
+    def forward(self, input):
+        features = []
+        for m in self.modality:
+            batch_size = input[m].shape[0]            
+            base_model = getattr(self, "Base_{}".format(m))
+            features.extend([base_model(input[m]).reshape(batch_size, -1)])
+        features = torch.cat(features, dim=1)
+        
 
-            if self.fusion_layer:
-                features = self.fusion_layer(features)
+        if self.fusion_layer:
+            features = self.fusion_layer(features)
 
-            out = self.classifier(features)
+        out = self.classifier(features)
 
         return out
 
