@@ -21,30 +21,40 @@ def train(cfg, logger, modality):
 
     epochs = cfg.TRAIN.EPOCHS
 
-    # model = build_model(cfg, modality)
+    model = build_model(cfg, modality)
 
-    # if cfg.MODEL.CHECKPOINT:
-    #     model.load_state_dict(torch.load(cfg.MODEL.CHECKPOINT))
+    if cfg.MODEL.CHECKPOINT:
+        model.load_state_dict(torch.load(cfg.MODEL.CHECKPOINT))
 
-    # if cfg.TRAIN.OPTIM.lower() == "sgd":
-    #     optimizer = optim.SGD(model.parameters(), cfg.TRAIN.LR, momentum=cfg.TRAIN.MOMENTUM, weight_decay=cfg.TRAIN.WEIGHT_DECAY)
-    #     lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=cfg.TRAIN.LR_STEPS, gamma=cfg.TRAIN.LR_DECAY)
-    # elif cfg.TRAIN.OPTIM.lower() == "adam":
-    #     optimizer = optim.Adam(model.parameters(), cfg.TRAIN.LR, betas=(0.9, 0.999), weight_decay=cfg.TRAIN.WEIGHT_DECAY)
-    #     lr_scheduler = None
+    if cfg.TRAIN.OPTIM.lower() == "sgd":
+        optimizer = optim.SGD(
+            model.parameters(),
+            cfg.TRAIN.LR,
+            momentum=cfg.TRAIN.MOMENTUM,
+            weight_decay=cfg.TRAIN.WEIGHT_DECAY,
+        )
+        lr_scheduler = optim.lr_scheduler.MultiStepLR(
+            optimizer, milestones=cfg.TRAIN.LR_STEPS, gamma=cfg.TRAIN.LR_DECAY
+        )
+    elif cfg.TRAIN.OPTIM.lower() == "adam":
+        optimizer = optim.Adam(
+            model.parameters(),
+            cfg.TRAIN.LR,
+            betas=(0.9, 0.999),
+            weight_decay=cfg.TRAIN.WEIGHT_DECAY,
+        )
+        lr_scheduler = None
 
-    # criterion = torch.nn.CrossEntropyLoss()
+    criterion = torch.nn.CrossEntropyLoss()
 
-    # model, criterion = model.to(device), criterion.to(device)
+    model, criterion = model.to(device), criterion.to(device)
 
-    # TODO - Read video list file
     with open(cfg.TRAIN.VID_LIST) as f:
         train_list = [x.strip() for x in f.readlines() if len(x.strip()) > 0]
 
     with open(cfg.TEST.VID_LIST) as f:
         val_list = [x.strip() for x in f.readlines() if len(x.strip()) > 0]
 
-    
     train_transforms = {}
     val_transforms = {}
     for m in modality:
@@ -53,6 +63,7 @@ def train(cfg, logger, modality):
                 [
                     MultiScaleCrop(cfg.DATA.TRAIN_CROP_SIZE, [1, 0.875, 0.75, 0.66]),
                     RandomHorizontalFlip(prob=0.5, is_flow=False),
+                    Stack(m),
                     ToTensor(),
                     Normalize(cfg.DATA.RGB_MEAN, cfg.DATA.RGB_STD),
                 ]
@@ -61,6 +72,7 @@ def train(cfg, logger, modality):
                 [
                     Rescale(cfg.DATA.TEST_SCALE_SIZE, is_flow=False),
                     CenterCrop(cfg.DATA.TEST_CROP_SIZE),
+                    Stack(m),
                     ToTensor(),
                     Normalize(cfg.DATA.RGB_MEAN, cfg.DATA.RGB_STD),
                 ]
@@ -68,8 +80,11 @@ def train(cfg, logger, modality):
         elif m == "Flow":
             train_transforms[m] = torchvision.transforms.Compose(
                 [
-                    MultiScaleCrop(cfg.DATA.TRAIN_CROP_SIZE, [1, 0.875, 0.75, 0.66], is_flow=True),
+                    MultiScaleCrop(
+                        cfg.DATA.TRAIN_CROP_SIZE, [1, 0.875, 0.75, 0.66], is_flow=True
+                    ),
                     RandomHorizontalFlip(prob=0.5, is_flow=True),
+                    Stack(m),
                     ToTensor(),
                     Normalize(cfg.DATA.FLOW_MEAN, cfg.DATA.FLOW_STD),
                 ]
@@ -78,13 +93,13 @@ def train(cfg, logger, modality):
                 [
                     Rescale(cfg.DATA.TEST_SCALE_SIZE, is_flow=True),
                     CenterCrop(cfg.DATA.TEST_CROP_SIZE),
+                    Stack(m),
                     ToTensor(),
                 ]
             )
         elif m == "Audio":
-            train_transforms[m] = torchvision.transforms.Compose([ToTensor()])
-            val_transforms[m] = torchvision.transforms.Compose([ToTensor()])
-        
+            train_transforms[m] = torchvision.transforms.Compose([Stack(m), ToTensor()])
+            val_transforms[m] = torchvision.transforms.Compose([Stack(m), ToTensor()])
 
     train_dataset = Video_Dataset(
         cfg, train_list, modality, transform=train_transforms, mode="train"
@@ -94,39 +109,48 @@ def train(cfg, logger, modality):
         cfg, train_list, modality, transform=val_transforms, mode="val"
     )
 
-    data = train_dataset[0]
-
-    print(data["RGB"].shape, data["Flow"].shape, data["Audio"].shape)
-
-    # TODO - Create train and validation split
-
-    # train_loader = DataLoader(dataset, num_workers=cfg.NUM_WORKERS)
-    # val_loader = DataLoader(dataset, num_workers=cfg.NUM_WORKERS)
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=cfg.TRAIN.BATCH_SIZE,
+        shuffle=True,
+        num_workers=cfg.NUM_WORKERS,
+    )
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=cfg.TEST.BATCH_SIZE,
+        shuffle=False,
+        num_workers=cfg.NUM_WORKERS,
+    )
 
     start_time = time.time()
 
-    # for epoch in range(epochs):
-    #     model.train()
-    #     train_loss = 0
-    #     for batch_no, input in train_loader:
-    #         optimizer.zero_grad()
-    #         frames, target = input["frames"].to(device), input["target"].to(device)
-    #         out = model(frames)
+    for epoch in range(epochs):
+        model.train()
+        train_loss = 0
+        for batch_no, (input) in enumerate(train_loader):
+            optimizer.zero_grad()
+            target = input["target"]
+            for m in modality:
+                input[m] = input[m].to(device)
+            for key in target.keys():
+                target[key] = target[key].to(device)
+            out = model(input, num_segments = cfg.DATA.NUM_SEGMENTS)
 
-    #         loss = calculate_loss(criterion, target, out)
-    #         train_loss += loss.item()
-    #         loss.backward()
-    #         optimizer.step()
+            loss = calculate_loss(criterion, target, out)
+            train_loss += loss.item()
+            loss.backward()
+            optimizer.step()
+            print(loss.item(), train_loss)
 
-    #     model.eval()
-    #     val_loss = 0
-    #     val_acc = 0
-    #     with torch.no_grad():
-    #         for input in val_loader:
-    #             frames, target = input["frames"].to(device), input["target"].to(device)
-    #             out = model(frames)
-    #             loss = calculate_loss(criterion, target, out)
-    #             val_loss += loss.item()
-    #             val_acc += calculate_topk_accuracy(out, target, topk=[1, 5])
+        # model.eval()
+        # val_loss = 0
+        # val_acc = 0
+        # with torch.no_grad():
+        #     for input in val_loader:
+        #         frames, target = input["frames"].to(device), input["target"].to(device)
+        #         out = model(frames)
+        #         loss = calculate_loss(criterion, target, out)
+        #         val_loss += loss.item()
+        #         val_acc += calculate_topk_accuracy(out, target, topk=[1, 5])
 
     hours, minutes, seconds = get_time_diff(start_time, time.time())

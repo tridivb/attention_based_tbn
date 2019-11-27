@@ -39,8 +39,8 @@ TRAIN:
   VID_LIST: "./train_split.txt"
   TRAIN_ENABLE: True
   OPTIM: "sgd"
-  BATCH_SIZE: 1
-  EPOCHS: 25
+  BATCH_SIZE: 5
+  EPOCHS: 1
   LR: 1e-4
   MOMENTUM: 0.9
   WEIGHT_DECAY: 0
@@ -52,7 +52,7 @@ TRAIN:
 TEST:
   VID_LIST: "./val_split.txt"
   TEST_ENABLE: True
-  BATCH_SIZE: 10
+  BATCH_SIZE: 5
   PRE_TRAINED: ""
 # Misc
 LOG_DIR: ""

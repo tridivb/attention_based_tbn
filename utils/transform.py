@@ -5,6 +5,7 @@ import numbers
 import math
 import torch
 
+
 class RandomCrop(object):
     def __init__(self, size):
         assert isinstance(size, (int, tuple))
@@ -15,30 +16,23 @@ class RandomCrop(object):
             assert len(size) == 2
             self.size = size
 
-    def __call__(self, img_stack):
-        assert isinstance(img_stack, np.ndarray)
-        h, w = img_stack.shape[1], img_stack.shape[2]
+    def __call__(self, img_list):
+        assert isinstance(img_list, list)
         th, tw = self.size
+        h, w = img_list[0].shape[0:2]
 
-        if w == tw and h == th:
-            return img_stack
-        else:
-            x1 = np.random.randint(0, w - tw)
-            y1 = np.random.randint(0, h - th)
+        x1 = np.random.randint(0, w - tw)
+        y1 = np.random.randint(0, h - th)
 
-            out_images = []
-            for img_no in range(img_stack.shape[0]):
-                assert (
-                    img_stack[img_no].shape[1] == w and img_stack[img_no].shape[0] == h
-                )
+        out_images = []
+        for img in img_list:
+            if w == tw and h == th:
+                out_images.extend([img])
+            else:
+                assert img.shape[0] == h and img.shape[1] == w
+                out_images.extend([img[y1 : y1 + th, x1 : x1 + tw]])
 
-                out_images.extend(
-                    img_stack[img_no, y1 : y1 + th, x1 : x1 + tw, :][None, ...]
-                )
-
-            out_images = np.stack(out_images, axis=0)
-
-            return out_images
+        return out_images
 
 
 class CenterCrop(object):
@@ -51,19 +45,16 @@ class CenterCrop(object):
             assert len(size) == 2
             self.size = size
 
-    def __call__(self, img_stack):
-        assert isinstance(img_stack, np.ndarray)
+    def __call__(self, img_list):
+        assert isinstance(img_list, list)
         h, w = self.size
         out_images = []
 
-        for img_no in range(img_stack.shape[0]):
-            img = img_stack[img_no]
+        for img in img_list:
             x1 = (img.shape[1] - w) // 2
             y1 = (img.shape[0] - h) // 2
-            img = img[y1 : y1 + h, x1 : x1 + w, :]
-            out_images.extend(img[None, ...])
-
-        out_images = np.stack(out_images, axis=0)
+            img = img[y1 : y1 + h, x1 : x1 + w]
+            out_images.extend([img])
 
         return out_images
 
@@ -76,34 +67,22 @@ class RandomHorizontalFlip(object):
         self.is_flow = is_flow
         self.prob = prob
 
-    def __call__(self, img_stack, is_flow=False):
+    def __call__(self, img_list, is_flow=False):
 
-        assert isinstance(img_stack, np.ndarray)
+        assert isinstance(img_list, list)
         p = np.random.random()
 
         if p < self.prob:
             out_images = []
-            for img_no in range(img_stack.shape[0]):
-                img = img_stack[img_no]
-                if self.is_flow:
-                    out_img = []
-                    for c in range(0, img.shape[2], 2):
-                        flip_img = np.fliplr(img[:, :, c])[..., None]
-                        out_img.extend([flip_img])
-                    out_img = np.concatenate(out_img, axis=2)
-                else:
-                    out_img = np.fliplr(img)
-                out_images.extend(out_img[None, ...])
-            out_images = np.stack(out_images, axis=0)
+            for img in img_list:
+                out_images.extend([np.fliplr(img)])
             return out_images
         else:
-            return img_stack
+            return img_list
 
 
 class Normalize(object):
     def __init__(self, mean, std):
-        # assert isinstance(mean, list)
-        # assert isinstance(std, list)
         self.mean = torch.tensor(mean).float()
         self.std = torch.tensor(std).float()
 
@@ -116,7 +95,7 @@ class Normalize(object):
         rep_std = self.std.reshape(1, self.std.size(0), 1, 1)
 
         tensor = (tensor - rep_mean) / rep_std
-        
+
         return tensor
 
 
@@ -135,11 +114,11 @@ class Rescale(object):
         self.interpolation = interpolation
         self.is_flow = is_flow
 
-    def __call__(self, img_stack):
+    def __call__(self, img_list):
 
-        assert isinstance(img_stack, np.ndarray)
+        assert isinstance(img_list, list)
 
-        h, w = img_stack.shape[1:3]
+        h, w = img_list[0].shape[0:2]
 
         if isinstance(self.size, int):
             if h > w:
@@ -152,29 +131,17 @@ class Rescale(object):
 
         new_h, new_w = int(new_h), int(new_w)
 
-        if (new_h, new_w) == img_stack.shape[1:3]:
-            return img_stack
-        else:
-            out_images = []
-            for img_no in range(img_stack.shape[0]):
-                img = img_stack[img_no]
-                if self.is_flow:
-                    out_img = []
-                    for c in range(img.shape[2]):
-                        res_img = cv2.resize(
-                            img[:, :, c],
-                            (new_w, new_h),
-                            interpolation=self.interpolation,
-                        ).reshape(new_h, new_w, 1)
-                        out_img.extend([res_img])
-                    out_img = np.concatenate(out_img, axis=2)
-                else:
-                    out_img = cv2.resize(
-                        img, (new_w, new_h), interpolation=self.interpolation
-                    )
-                out_images.extend(out_img[None, ...])
-            out_images = np.stack(out_images, axis=0)
-            return out_images
+        out_images = []
+        for img in img_list:
+            if (new_h, new_w) == img.shape[0:2]:
+                out_images.extend([img])
+            else:
+                assert img.shape[0] == h and img.shape[1] == w
+                res_img = cv2.resize(
+                    img, (new_w, new_h), interpolation=self.interpolation
+                )
+                out_images.extend([res_img])
+        return out_images
 
 
 # class GroupOverSample(object):
@@ -238,31 +205,28 @@ class MultiScaleCrop(object):
         )
         self.is_flow = is_flow
         self.interpolation = cv2.INTER_LINEAR
-        self.worker = Rescale(
-            self.input_size, interpolation=self.interpolation, is_flow=self.is_flow
-        )
 
-    def __call__(self, img_stack):
+    def __call__(self, img_list):
 
-        assert isinstance(img_stack, np.ndarray)
+        assert isinstance(img_list, list)
 
-        im_size = img_stack.shape
+        im_size = img_list[0].shape[0:2]
 
         crop_w, crop_h, offset_w, offset_h = self._sample_crop_size(im_size)
 
         out_images = []
-        for img_no in range(img_stack.shape[0]):
-            img = img_stack[
-                img_no, offset_h : offset_h + crop_h, offset_w : offset_w + crop_w, :
-            ]
-            out_images.extend(img[None, ...])
-        out_images = np.stack(out_images, axis=0)
+        for img in img_list:
+            img = img[offset_h : offset_h + crop_h, offset_w : offset_w + crop_w]
+            out_images.extend([img])
 
-        out_images = self.worker(out_images)
+        rescale = Rescale(
+            self.input_size, interpolation=self.interpolation, is_flow=self.is_flow
+        )
+        out_images = rescale(out_images)
         return out_images
 
     def _sample_crop_size(self, im_size):
-        img_h, img_w = im_size[1], im_size[2]
+        img_h, img_w = im_size[0], im_size[1]
 
         # find a crop size
         base_size = min(img_w, img_h)
@@ -347,12 +311,14 @@ class RandomSizedCrop(object):
 
         self.interpolation = interpolation
 
-    def __call__(self, img_stack):
+    def __call__(self, img_list):
 
-        assert isinstance(img_stack, np.ndarray)
+        assert isinstance(img_list, np.ndarray)
+        img_h, img_w = img_list[0].shape[0:2]
 
         for attempt in range(10):
-            area = img_stack.shape[1] * img_stack.shape[2]
+
+            area = img_list[0].shape[0] * img_list[0].shape[1]
             target_area = np.random.uniform(0.08, 1.0) * area
             aspect_ratio = np.random.uniform(3.0 / 4, 4.0 / 3)
 
@@ -362,9 +328,9 @@ class RandomSizedCrop(object):
             if np.random.random() < 0.5:
                 w, h = h, w
 
-            if w <= img_stack.shape[2] and h <= img_stack.shape[1]:
-                x1 = np.random.randint(0, img_stack.shape[2] - w)
-                y1 = np.random.randint(0, img_stack.shape[1] - h)
+            if w <= img_w and h <= img_h:
+                x1 = np.random.randint(0, img_w - w)
+                y1 = np.random.randint(0, img_h - h)
                 found = True
                 break
         else:
@@ -374,49 +340,55 @@ class RandomSizedCrop(object):
 
         if found:
             out_images = []
-            for img_no in range(img_stack.shape[0]):
-                img = img_stack[img_no, x1 : x1 + w, y1 : y1 + h, :]
-                assert img.shape[:-1] == (w, h)
-                out_images.extend(
-                    cv2.resize(
-                        img, (self.size, self.size), interpolation=self.interpolation
-                    )[None, ...]
+            for img in img_list:
+                img = img[x1 : x1 + w, y1 : y1 + h]
+                assert img.shape[0:2] == (h, w)
+                res_img = cv2.resize(
+                    img, (self.size, self.size), interpolation=self.interpolation
                 )
-            out_images = np.stack(out_images, axis=0)
+                out_images.extend([res_img])
             return out_images
         else:
             # Fallback
             scale = Rescale(self.size, interpolation=self.interpolation)
             crop = RandomCrop(self.size)
-            return crop(scale(img_stack))
+            return crop(scale(img_list))
 
 
-# class Stack(object):
+class Stack(object):
+    def __init__(self, modality, length=5):
+        self.modality = modality
+        self.length = 2 * length
 
-#     def __init__(self, roll=False):
-#         self.roll = roll
+    def __call__(self, img_list):
+        assert isinstance(img_list, list)
 
-#     def __call__(self, img_list):
-#         if img_group[0].mode == 'L' or img_group[0].mode == 'F':
-#             return np.concatenate([np.expand_dims(x, 2) for x in img_group], axis=2)
-#         elif img_group[0].mode == 'RGB':
-#             if self.roll:
-#                 return np.concatenate([np.array(x)[:, :, ::-1] for x in img_group], axis=2)
-#             else:
-#                 return np.concatenate(img_group, axis=2)
+        out_frames = []
+        for img in img_list:
+            if self.modality == "RGB":
+                img = img.reshape(1, img.shape[0], img.shape[1], 3)
+            else:
+                img = img.reshape(1, img.shape[0], img.shape[1], 1)
+            out_frames.extend(img)
+
+        if self.modality == "Flow":
+            flow_frames = []
+            for idx in range(0, len(out_frames), self.length):
+                img = np.concatenate(out_frames[idx : idx + self.length], axis=2)
+                flow_frames.extend([img])
+            return np.stack(flow_frames, axis=0)
+        else:
+            return np.stack(out_frames, axis=0)
+
 
 class ToTensor(object):
     """ Converts a PIL.Image (RGB) or numpy.ndarray (H x W x C) in the range [0, 255]
     to a torch.FloatTensor of shape (C x H x W) in the range [0.0, 1.0] """
 
-    def __call__(self, img_stack):
-        assert isinstance(img_stack, np.ndarray)
-        assert (len(img_stack.shape) in [3, 4])
+    def __call__(self, img_arr):
+        assert isinstance(img_arr, np.ndarray)
 
-        if len(img_stack.shape) == 3:
-            img_stack = img_stack[..., None]
-
-        out_images = torch.from_numpy(img_stack).permute(0, 3, 1, 2).contiguous()
+        out_images = torch.from_numpy(img_arr).permute(0, 3, 1, 2).contiguous()
         out_images /= 255
 
         return out_images

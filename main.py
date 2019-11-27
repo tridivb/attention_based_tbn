@@ -23,26 +23,6 @@ def parse_args():
         default="./config/config.yaml",
         type=str,
     )
-    # parser.add_argument(
-    #     "--checkpoint",
-    #     dest="weights",
-    #     help="weights model file (/path/to/model_weights.pkl)",
-    #     default=config.weights,
-    #     type=str,
-    # )
-    # parser.add_argument(
-    #     "--dataset_root",
-    #     dest="dataset_root",
-    #     help="path_to_dataset_root",
-    #     type=str,
-    # )
-    # parser.add_argument(
-    #     "--out_path",
-    #     dest="out_path",
-    #     help="path_to_save_detections",
-    #     default=config.out_path,
-    #     type=str,
-    # )
 
     return parser.parse_args()
 

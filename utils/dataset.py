@@ -112,7 +112,7 @@ class Video_Dataset(Dataset):
                     vid_record.start_frame[modality]
                     + np.arange(0, self.num_segments) * seg_len
                     + offsets
-                )
+                ).astype(int)
             else:
                 indices = vid_record.start_frame[modality] + np.zeros(
                     (self.num_segments)
@@ -125,17 +125,8 @@ class Video_Dataset(Dataset):
         frames = []
 
         for ind in indices[modality]:
-            frame = []
             for ind_offset in range(self.frame_len[modality]):
-                frame.extend(self._read_frames(ind + ind_offset, vid_id, modality))
-            if modality == "Audio":
-                frame = frame[0]
-            else:
-                frame = np.concatenate(frame, axis=2)
-            frames.extend(frame[None, ...])
-
-        frames = np.stack(frames, axis=0)
-
+                frames.extend(self._read_frames(ind + ind_offset, vid_id, modality))
         return frames
 
     def _read_frames(self, frame_idx, vid_id, modality):
@@ -156,8 +147,7 @@ class Video_Dataset(Dataset):
             )
             img_x = cv2.imread(os.path.join(flow_path, flow_file_name[0]), 0)
             img_y = cv2.imread(os.path.join(flow_path, flow_file_name[1]), 0)
-            img = np.concatenate((img_x[..., None], img_y[..., None]), axis=2)
-            return [img]
+            return [img_x, img_y]
         elif modality == "Audio":
             sample = self._get_audio(frame_idx, vid_id)
             spec = self._get_spectrogram(sample)
@@ -209,10 +199,9 @@ class Video_Dataset(Dataset):
 
         spec = np.log(np.real(spec * np.conj(spec)) + eps)
         return spec
-        
 
     def _transform_data(self, img_stack, modality):
-        
+
         img_stack = self.transform[modality](img_stack)
 
         return img_stack

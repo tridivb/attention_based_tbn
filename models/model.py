@@ -8,6 +8,7 @@ from models.resnet import Resnet
 from models.bn_inception import bninception
 from utils.transform import MultiScaleCrop, RandomHorizontalFlip, ToTensor
 
+
 class TBNModel(nn.Module):
     def __init__(self, cfg, modality):
         super(TBNModel, self).__init__()
@@ -54,57 +55,32 @@ class TBNModel(nn.Module):
         for param in getattr(self, modality):
             param.requires_grad = requires_grad
 
-    def forward(self, input):
-        for i, m in enumerate(self.modality):
-            base_model = getattr(self, "Base_{}".format(m))
-            if i == 0:
-                features = base_model(input).reshape(input.shape[0], -1)
-            else:
-                features = torch.cat(
-                    (features, base_model(input).reshape(input.shape[0], -1)),
-                    dim=1,
-                )
+    def forward(self, input, num_segments=3):
+        for i in range(num_segments):
+            features = []
+            for m in self.modality:
+                batch_size = input[m].shape[0]            
+                base_model = getattr(self, "Base_{}".format(m))
+                features.extend([base_model(input[m][:, i, :, :, :]).reshape(batch_size, -1)])
+            features = torch.cat(features, dim=1)
+            print(features.shape)
 
-        if self.fusion_layer:
-            features = self.fusion_layer(features)    
-        
-        out = self.classifier(features)
-        
+            if self.fusion_layer:
+                features = self.fusion_layer(features)
+
+            out = self.classifier(features)
+
         return out
 
-    def set_transforms(self):
-        transforms = {}
-
-        for m in self.modality:
-            if m == "RGB":
-                transforms[m] = torchvision.transforms.Compose(
-                    [
-                        MultiScaleCrop(224, [1, 0.875, 0.75, 0.66]),
-                        RandomHorizontalFlip(prob=0.5, is_flow=False),
-                        ToTensor(),
-                    ]
-                )
-            elif m == "Flow":
-                transforms[m] = torchvision.transforms.Compose(
-                    [
-                        MultiScaleCrop(224, [1, 0.875, 0.75, 0.66]),
-                        RandomHorizontalFlip(prob=0.5, is_flow=True),
-                        ToTensor(),
-                    ]
-                )
-            elif m == "Audio":
-                transforms[m] = torchvision.transforms.Compose([ToTensor()])
-
-        return transforms
 
 class Classifier(nn.Module):
     def __init__(self, num_classes, in_features):
         super(Classifier, self).__init__()
 
         for class_name in num_classes.keys():
-            self.add_module(
-                class_name, nn.Linear(in_features, num_classes[class_name])
-            )
+            self.add_module(class_name, nn.Linear(in_features, num_classes[class_name]))
+
+        self.num_classes = num_classes
 
     def forward(self, input):
         out = {}
