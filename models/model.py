@@ -58,11 +58,11 @@ class TBNModel(nn.Module):
     def forward(self, input):
         features = []
         for m in self.modality:
-            batch_size = input[m].shape[0]            
+            b, n, c, h, w = input[m].shape
             base_model = getattr(self, "Base_{}".format(m))
-            features.extend([base_model(input[m]).reshape(batch_size, -1)])
+            feature = base_model(input[m].view(b * n, c, h, w))
+            features.extend([feature.view(b * n, -1)])
         features = torch.cat(features, dim=1)
-        
 
         if self.fusion_layer:
             features = self.fusion_layer(features)
@@ -70,6 +70,20 @@ class TBNModel(nn.Module):
         out = self.classifier(features)
 
         return out
+
+    def get_loss(self, criterion, target, preds):
+        assert isinstance(target, dict)
+        assert isinstance(preds, dict)
+
+        loss = 0
+
+        for key in target.keys():
+            if target[key].shape[0] < preds[key].shape[0]:
+                assert preds[key].shape[0] % target[key].shape[0] == 0
+                labels = target[key].repeat(preds[key].shape[0] // target[key].shape[0])
+            loss += criterion(preds[key], labels)
+
+        return loss
 
 
 class Classifier(nn.Module):

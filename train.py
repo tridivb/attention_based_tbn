@@ -1,14 +1,15 @@
+import os
+import time
+import numpy as np
 import torch
+import torch.optim as optim
 import torchvision
 from torch.utils.data.dataloader import DataLoader
-import torch.optim as optim
-import numpy as np
-import os
 from tensorboardX import SummaryWriter
 
 from models.model_builder import build_model
 from utils.dataset import Video_Dataset
-from utils.misc import *
+from utils.misc import get_time_diff, calculate_topk_accuracy, save_checkpoint
 from utils.transform import *
 
 
@@ -21,10 +22,19 @@ def train(cfg, logger, modality):
 
     epochs = cfg.TRAIN.EPOCHS
 
+    print("Initializing model...")
     model = build_model(cfg, modality)
+    print("Model initialized.")
+    print("----------------------------------------------------------")
 
     if cfg.MODEL.CHECKPOINT:
+        print("Loading pre-trained weights...")
         model.load_state_dict(torch.load(cfg.MODEL.CHECKPOINT))
+        print("Done.")
+        print("----------------------------------------------------------")
+    
+    checkpoint_name = os.path.join("./weights", "model_{}_{}.pth".format(cfg.MODEL.ARCH, "_".join(modality)))
+    
 
     if cfg.TRAIN.OPTIM.lower() == "sgd":
         optimizer = optim.SGD(
@@ -49,11 +59,15 @@ def train(cfg, logger, modality):
 
     model, criterion = model.to(device), criterion.to(device)
 
+    print("Creating list of training and validation videos...")
     with open(cfg.TRAIN.VID_LIST) as f:
         train_list = [x.strip() for x in f.readlines() if len(x.strip()) > 0]
 
-    with open(cfg.TEST.VID_LIST) as f:
+    with open(cfg.VAL.VID_LIST) as f:
         val_list = [x.strip() for x in f.readlines() if len(x.strip()) > 0]
+
+    print("Done.")
+    print("----------------------------------------------------------")
 
     train_transforms = {}
     val_transforms = {}
@@ -95,18 +109,20 @@ def train(cfg, logger, modality):
                     CenterCrop(cfg.DATA.TEST_CROP_SIZE),
                     Stack(m),
                     ToTensor(),
+                    Normalize(cfg.DATA.FLOW_MEAN, cfg.DATA.FLOW_STD),
                 ]
             )
         elif m == "Audio":
             train_transforms[m] = torchvision.transforms.Compose([Stack(m), ToTensor()])
             val_transforms[m] = torchvision.transforms.Compose([Stack(m), ToTensor()])
 
+    print("Creating datasets...")
     train_dataset = Video_Dataset(
         cfg, train_list, modality, transform=train_transforms, mode="train"
     )
 
     val_dataset = Video_Dataset(
-        cfg, train_list, modality, transform=val_transforms, mode="val"
+        cfg, val_list, modality, transform=val_transforms, mode="val"
     )
 
     train_loader = DataLoader(
@@ -117,49 +133,104 @@ def train(cfg, logger, modality):
     )
     val_loader = DataLoader(
         val_dataset,
-        batch_size=cfg.TEST.BATCH_SIZE,
+        batch_size=cfg.VAL.BATCH_SIZE,
         shuffle=False,
         num_workers=cfg.NUM_WORKERS,
     )
 
+    print("Done.")
+    print("----------------------------------------------------------")
+
+    no_train_batches = len(train_loader.dataset) // train_loader.batch_size
+    no_val_batches = len(val_loader.dataset) // val_loader.batch_size
+
+    # batch_interval = int((len(train_loader.dataset) / train_loader.batch_size) // 4)
+    batch_interval = 1
+
+    dict_to_device = TransferTensorDict(device)
+
+    min_val_loss = np.inf
+
+    print("Training in progress...")
     start_time = time.time()
 
     for epoch in range(epochs):
+        epoch_start_time = time.time()
         model.train()
         train_loss = 0
-        for batch_no, (input) in enumerate(train_loader):
+        for batch_no, (data, target) in enumerate(train_loader):
             optimizer.zero_grad()
-            target = input["target"]
-            for m in modality:
-                b, n, c, h, w = input[m].shape
-                # input[m] = input[m].to(device).view(b * n, c, h, w)
-                # Stack the batch of frames for each segment
-                input[m] = input[m].to(device)
-                frames = []
-                for i in range(n):
-                    frames.extend([input[m][:, i, :, :, :]])
+            data, target = dict_to_device(data), dict_to_device(target)
 
-                input[m] = torch.cat(frames, dim=0)
-                
-            for cls in target.keys():
-                target[cls] = target[cls].repeat(cfg.DATA.NUM_SEGMENTS).to(device)
-            out = model(input)
+            out = model(data)
 
-            loss = calculate_loss(criterion, target, out)
+            loss = model.get_loss(criterion, target, out)
             train_loss += loss.item()
             loss.backward()
             optimizer.step()
-            print(loss.item(), train_loss)
 
-        # model.eval()
-        # val_loss = 0
-        # val_acc = 0
-        # with torch.no_grad():
-        #     for input in val_loader:
-        #         frames, target = input["frames"].to(device), input["target"].to(device)
-        #         out = model(frames)
-        #         loss = calculate_loss(criterion, target, out)
-        #         val_loss += loss.item()
-        #         val_acc += calculate_topk_accuracy(out, target, topk=[1, 5])
+            if batch_no == 0 or (batch_no + 1) % batch_interval == 0:
+                print(
+                    "Epoch Progress: [{}/{}] || Train Loss: {:.5f}".format(
+                        (batch_no + 1) * train_loader.batch_size,
+                        len(train_loader.dataset),
+                        train_loss / (batch_no + 1),
+                    )
+                )
+
+        if lr_scheduler:
+            lr_scheduler.step()
+
+        train_loss /= no_train_batches
+
+        model.eval()
+        val_loss = 0
+        val_acc = {}
+        for cls in cfg.MODEL.NUM_CLASSES:
+            val_acc[cls] = [0] * (len(cfg.VAL.TOPK))
+
+        with torch.no_grad():
+            for data, target in val_loader:
+                data, target = dict_to_device(data), dict_to_device(target)
+
+                out = model(data)
+
+                loss = model.get_loss(criterion, target, out)
+                val_loss += loss.item()
+                for cls in val_acc.keys():
+                    acc = calculate_topk_accuracy(
+                        out[cls], target[cls], topk=cfg.VAL.TOPK
+                    )
+                    val_acc[cls] = [x + y for x, y in zip(val_acc[cls], acc)]
+
+        val_loss /= no_val_batches
+        for cls in val_acc.keys():
+            val_acc[cls] = [x / no_val_batches for x in val_acc[cls]]
+
+        if val_loss < min_val_loss:
+            save_checkpoint(model, optimizer, epoch, filename=checkpoint_name)
+
+        hours, minutes, seconds = get_time_diff(epoch_start_time, time.time())
+        print("----------------------------------------------------------")
+        print(
+            "Epoch: [{}/{}] || Train_loss: {:.5f} || Val_Loss: {:.5f}".format(
+                epoch + 1, epochs, train_loss, val_loss
+            )
+        )
+        print("----------------------------------------------------------")
+        print("Validation Accuracy (Top {}): {}".format(cfg.VAL.TOPK, val_acc))
+        print("----------------------------------------------------------")
+        print(
+            "Epoch Time: {} hours, {} minutes, {} seconds,".format(
+                hours, minutes, seconds
+            )
+        )
+        print("----------------------------------------------------------")
 
     hours, minutes, seconds = get_time_diff(start_time, time.time())
+    print(
+        "Training completed. Total time taken: {} hours, {} minutes, {} seconds,".format(
+            hours, minutes, seconds
+        )
+    )
+

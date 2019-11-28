@@ -50,14 +50,15 @@ def main(args):
     else:
         log_root = cfg.LOG_DIR
 
-    log_dir = os.path.join(log_root, log_dir)
-    os.makedirs(log_dir, exist_ok=True)
-    log_file = os.path.join(log_dir, "tbn.log")
+    # log_dir = os.path.join(log_root, log_dir)
+    # os.makedirs(log_dir, exist_ok=True)
+    # log_file = os.path.join(log_dir, "tbn.log")
 
-    logger = setup_logger(log_file)
-    logger.info("Initializing the pipeline...")
-    logger.info(cfg.pretty())
-    print("----------------------------------------------------------")
+    # logger = setup_logger(log_file)
+    # logger.info("Initializing the pipeline...")
+    # logger.info(cfg.pretty())
+    # print("----------------------------------------------------------")
+    logger = None
 
     torch.hub.set_dir("./weights")
 

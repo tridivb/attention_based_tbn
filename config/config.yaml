@@ -1,9 +1,9 @@
 # Dataset Parameters
 DATA:
-  DATA_DIR: "/media/data/tridiv"
+  DATA_DIR: "/media/data/tridiv/epic"
   ANNOTATION_FILE: "/media/data/tridiv/epic_kitchens/annotations/EPIC_train_action_labels.csv"
-  FRAME_DIR_PREFIX: "epic_symlinks"
-  AUDIO_DIR_PREFIX: "epic_kitchens/EPIC_KITCHENS_2018/tbn/audio"
+  FRAME_DIR_PREFIX: "symlinks"
+  AUDIO_DIR_PREFIX: "audio"
   DATASET: "epic"
   USE_RGB: True
   USE_FLOW: True
@@ -31,29 +31,36 @@ MODEL:
   ARCH: "bninception"
   NUM_CLASSES: {
     verb: 127,
-    noun: 325
+    noun: 352
   }
   CHECKPOINT: ""
 # Train Parameters
 TRAIN:
-  VID_LIST: "./train_split.txt"
   TRAIN_ENABLE: True
+  VID_LIST: "./train_split.txt"
   OPTIM: "sgd"
-  BATCH_SIZE: 5
+  BATCH_SIZE: 16
   EPOCHS: 1
-  LR: 1e-4
+  LR: 1e-2
   MOMENTUM: 0.9
   WEIGHT_DECAY: 0
   LR_STEPS: [20, 40]
   LR_DECAY: 1e-6
   FREEZE_BASE: False
   FREEZE_FUSION: False
-# Test Parameters
-TEST:
+# Validation Parameters
+VAL:
   VID_LIST: "./val_split.txt"
-  TEST_ENABLE: True
-  BATCH_SIZE: 5
+  BATCH_SIZE: 16
   PRE_TRAINED: ""
+  TOPK: [1, 5]
+  # Test Parameters
+TEST:
+  TEST_ENABLE: True
+  VID_LIST: "./val_split.txt"
+  BATCH_SIZE: 16
+  PRE_TRAINED: ""
+  TOPK: [1, 5]
 # Misc
 LOG_DIR: ""
 NUM_WORKERS: 8

@@ -47,13 +47,14 @@ class Video_Dataset(Dataset):
             else:
                 self.frame_len[m] = 1
 
-        if mode in ["train", "val"]:
+        if annotation_file:
             if annotation_file.endswith("csv"):
                 self.annotations = pd.read_csv(annotation_file)
             elif annotation_file.endswith("pkl"):
                 self.annotations = pd.read_pickle(annotation_file)
-
-        self.annotations = self.annotations.query("video_id in @vid_list")
+            self.annotations = self.annotations.query("video_id in @vid_list")
+        else:
+            self.annotations = None
 
     def __len__(self) -> int:
         return self.annotations.shape[0]
@@ -78,58 +79,53 @@ class Video_Dataset(Dataset):
         indices = {}
         for m in self.modality:
             indices[m] = self._get_offsets(vid_record, m)
-
-        for m in self.modality:
-            data[m] = self._get_frames(m, vid_id, indices)
+            if self.frame_len[m] > 1:
+                frame_indices = (
+                    indices[m].repeat(self.frame_len[m]) + np.arange(self.frame_len[m])
+                ).astype(np.int64)
+                data[m] = self._get_frames(vid_record, m, vid_id, frame_indices)
+            else:
+                data[m] = self._get_frames(vid_record, m, vid_id, indices[m])
             data[m] = self._transform_data(data[m], m)
 
-        data["target"] = vid_record.label
+        target = vid_record.label
 
-        return data
+        return data, target
 
     def _get_offsets(self, vid_record, modality):
         seg_len = vid_record.num_frames[modality] // self.num_segments
-        if self.mode == "train":
-            if seg_len > 0:
-                offsets = np.random.randint(seg_len, size=self.num_segments)
-                indices = (
-                    vid_record.start_frame[modality]
-                    + np.arange(0, self.num_segments) * seg_len
-                    + offsets
-                )
-            else:
-                indices = vid_record.start_frame[modality] + np.zeros(
-                    (self.num_segments)
-                )
-        elif self.mode == "val":
-            if seg_len > 0:
-                offsets = (
-                    (seg_len - self.frame_len[modality] + 1)
-                    // 2
-                    * np.ones((self.num_segments))
-                )
-                indices = (
-                    vid_record.start_frame[modality]
-                    + np.arange(0, self.num_segments) * seg_len
-                    + offsets
-                ).astype(int)
-            else:
-                indices = vid_record.start_frame[modality] + np.zeros(
-                    (self.num_segments)
-                )
+        if self.mode == "train" and seg_len > 0:
+            offsets = np.random.randint(seg_len, size=self.num_segments)
+            indices = (
+                vid_record.start_frame[modality]
+                + np.arange(0, self.num_segments) * seg_len
+                + offsets
+            )
+        elif self.mode == "val" and seg_len > 0:
+            offsets = (
+                (seg_len - self.frame_len[modality] + 1)
+                // 2
+                * np.ones((self.num_segments))
+            )
+            indices = (
+                vid_record.start_frame[modality]
+                + np.arange(0, self.num_segments) * seg_len
+                + offsets
+            ).astype(int)
+        else:
+            indices = vid_record.start_frame[modality] + np.zeros((self.num_segments))
 
         return indices
 
-    def _get_frames(self, modality, vid_id, indices):
+    def _get_frames(self, vid_record, modality, vid_id, indices):
 
         frames = []
 
-        for ind in indices[modality]:
-            for ind_offset in range(self.frame_len[modality]):
-                frames.extend(self._read_frames(ind + ind_offset, vid_id, modality))
+        for ind in indices:
+            frames.extend(self._read_frames(vid_record, ind, vid_id, modality))
         return frames
 
-    def _read_frames(self, frame_idx, vid_id, modality):
+    def _read_frames(self, vid_record, frame_idx, vid_id, modality):
         if modality == "RGB":
             rgb_file_name = "img_{:010d}.{}".format(frame_idx, self.vis_file_ext)
             rgb_path = os.path.join(
@@ -149,15 +145,19 @@ class Video_Dataset(Dataset):
             img_y = cv2.imread(os.path.join(flow_path, flow_file_name[1]), 0)
             return [img_x, img_y]
         elif modality == "Audio":
-            sample = self._get_audio(frame_idx, vid_id)
+            sample = self._get_audio(vid_record, frame_idx, vid_id)
             spec = self._get_spectrogram(sample)
             return [spec]
 
-    def _get_audio(self, frame_idx, vid_id):
-        start_sec = (frame_idx / self.cfg.DATA.IN_FPS) - (
-            self.cfg.DATA.AUDIO_LENGTH / 2
-        )
-        start_sec = max(0, start_sec)
+    def _get_audio(self, vid_record, frame_idx, vid_id):
+        # start_sec = (frame_idx / self.cfg.DATA.IN_FPS) - (
+        #     self.cfg.DATA.AUDIO_LENGTH / 2
+        # )
+        min_len = int(self.cfg.DATA.AUDIO_LENGTH * self.cfg.DATA.SAMPLING_RATE)
+
+        start_frame = frame_idx - min_len // 2
+
+        start_frame = max(0, min(start_frame, vid_record.end_frame["Audio"] - min_len))
 
         aud_file = os.path.join(
             self.cfg.DATA.DATA_DIR,
@@ -170,19 +170,18 @@ class Video_Dataset(Dataset):
                 aud_file,
                 sr=self.cfg.DATA.SAMPLING_RATE,
                 mono=True,
-                offset=start_sec,
-                duration=self.cfg.DATA.AUDIO_LENGTH,
+                # offset=start_sec,
+                # duration=self.cfg.DATA.AUDIO_LENGTH,
             )
-            min_len = self.cfg.DATA.AUDIO_LENGTH * self.cfg.DATA.SAMPLING_RATE
-            if sample.shape[0] < min_len:
-                sample = np.pad(sample, (0, min_len - sample.shape[0]), mode="constant")
-            if sample.shape[0] > min_len:
-                sample = sample[:min_len]
-
-            return sample
-
         except Exception as e:
-            print("Failed to read audio file {} with error {}".format(aud_file, e))
+            print("Failed to read audio sample {} with error {}".format(aud_file, e))
+
+        if sample.shape[0] < min_len:
+            sample = np.pad(sample, (0, min_len - sample.shape[0]), mode="constant")
+        if sample.shape[0] > min_len:
+            sample = sample[start_frame : start_frame + min_len]
+
+        return sample
 
     def _get_spectrogram(self, sample, window_size=10, step_size=5, eps=1e-6):
         nperseg = int(round(window_size * self.cfg.DATA.SAMPLING_RATE / 1e3))

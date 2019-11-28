@@ -1,9 +1,9 @@
-import torchvision
 import cv2
 import numpy as np
 import numbers
 import math
 import torch
+import torchvision
 
 
 class RandomCrop(object):
@@ -81,24 +81,6 @@ class RandomHorizontalFlip(object):
             return img_list
 
 
-class Normalize(object):
-    def __init__(self, mean, std):
-        self.mean = torch.tensor(mean).float()
-        self.std = torch.tensor(std).float()
-
-    def __call__(self, tensor):
-        if self.mean.size(0) < tensor.size(1):
-            self.mean = self.mean.repeat(tensor.size(1))
-        if self.std.size(0) < tensor.size(1):
-            self.std = self.std.repeat(tensor.size(1))
-        rep_mean = self.mean.reshape(1, self.mean.size(0), 1, 1)
-        rep_std = self.std.reshape(1, self.std.size(0), 1, 1)
-
-        tensor = (tensor - rep_mean) / rep_std
-
-        return tensor
-
-
 class Rescale(object):
     """ Rescales the input PIL.Image to the given 'size'.
     'size' will be the size of the smaller edge.
@@ -142,47 +124,6 @@ class Rescale(object):
                 )
                 out_images.extend([res_img])
         return out_images
-
-
-# class GroupOverSample(object):
-#     def __init__(self, crop_size, scale_size=None):
-#         self.crop_size = (
-#             crop_size if not isinstance(crop_size, int) else (crop_size, crop_size)
-#         )
-
-#         if scale_size is not None:
-#             self.scale_worker = Scale(scale_size)
-#         else:
-#             self.scale_worker = None
-
-#     def __call__(self, img_group):
-
-#         if self.scale_worker is not None:
-#             img_group = self.scale_worker(img_group)
-
-#         image_w, image_h = img_group[0].size
-#         crop_w, crop_h = self.crop_size
-
-#         offsets = GroupMultiScaleCrop.fill_fix_offset(
-#             False, image_w, image_h, crop_w, crop_h
-#         )
-#         oversample_group = list()
-#         for o_w, o_h in offsets:
-#             normal_group = list()
-#             flip_group = list()
-#             for i, img in enumerate(img_group):
-#                 crop = img.crop((o_w, o_h, o_w + crop_w, o_h + crop_h))
-#                 normal_group.append(crop)
-#                 flip_crop = crop.copy().transpose(Image.FLIP_LEFT_RIGHT)
-
-#                 if img.mode == "L" and i % 2 == 0:
-#                     flip_group.append(ImageOps.invert(flip_crop))
-#                 else:
-#                     flip_group.append(flip_crop)
-
-#             oversample_group.extend(normal_group)
-#             oversample_group.extend(flip_group)
-#         return oversample_group
 
 
 class MultiScaleCrop(object):
@@ -388,10 +329,43 @@ class ToTensor(object):
     def __call__(self, img_arr):
         assert isinstance(img_arr, np.ndarray)
 
-        out_images = torch.from_numpy(img_arr).permute(0, 3, 1, 2).contiguous()
+        out_images = torch.from_numpy(img_arr).permute(0, 3, 1, 2).contiguous().float()
         out_images /= 255
 
         return out_images
+
+
+class Normalize(object):
+    def __init__(self, mean, std):
+        self.mean = torch.tensor(mean).float()
+        self.std = torch.tensor(std).float()
+
+    def __call__(self, tensor):
+        if self.mean.size(0) < tensor.size(1):
+            self.mean = self.mean.repeat(tensor.size(1))
+        if self.std.size(0) < tensor.size(1):
+            self.std = self.std.repeat(tensor.size(1))
+        rep_mean = self.mean.reshape(1, self.mean.size(0), 1, 1)
+        rep_std = self.std.reshape(1, self.std.size(0), 1, 1)
+
+        tensor = (tensor - rep_mean) / rep_std
+
+        return tensor
+
+
+class TransferTensorDict(object):
+    def __init__(self, device):
+        super(TransferTensorDict).__init__()
+        assert isinstance(device, torch.device)
+        self.device = device
+
+    def __call__(self, tensor_dict):
+        assert isinstance(tensor_dict, dict)
+
+        for key in tensor_dict.keys():
+            tensor_dict[key] = tensor_dict[key].to(self.device)
+
+        return tensor_dict
 
 
 class IdentityTransform(object):
