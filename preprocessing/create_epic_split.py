@@ -14,7 +14,15 @@ def parse_args():
         "--out_dir",
         help="output directory",
         dest="out_dir",
-        default="./",
+        default=os.path.dirname(os.path.realpath(__file__)),
+        type=str,
+    )
+    parser.add_argument(
+        "--mode",
+        help="mode of split",
+        dest="mode",
+        default="random",
+        choices=["random", "epic"],
         type=str,
     )
     return parser.parse_args()
@@ -39,9 +47,15 @@ def create_split(args):
     for p_id in df.participant_id.unique():
         data = df.query("participant_id == @p_id")
         vid_ids = list(data.video_id.unique())
-        random.shuffle(vid_ids)
-        train_list.extend(vid_ids[:-1])
-        val_list.append(vid_ids[-1])
+        if args.mode == "random":
+            random.shuffle(vid_ids)
+            train_list.extend(vid_ids[:-1])
+            val_list.append(vid_ids[-1])
+        elif args.mode == "epic":
+            if p_id < "P25":
+                train_list.extend(vid_ids)
+            else:
+                val_list.extend(vid_ids)
 
     train_list_file = os.path.join(args.out_dir, "train_split.txt")
     val_list_file = os.path.join(args.out_dir, "val_split.txt")
