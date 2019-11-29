@@ -1,3 +1,4 @@
+import time
 import math
 import cv2
 import numpy as np
@@ -22,6 +23,7 @@ class Video_Dataset(Dataset):
         modality: list = ["RGB"],
         transform=None,
         mode: str = "train",
+        read_pickle=True,
     ):
         self.cfg = cfg
         self.root_dir = cfg.DATA.DATA_DIR
@@ -35,6 +37,7 @@ class Video_Dataset(Dataset):
         self.mode = mode
         self.num_segments = cfg.DATA.NUM_SEGMENTS
         self.sampling_rate = cfg.DATA.AUDIO_SAMPLING_RATE
+        self.read_pickle = read_pickle
 
         self.transform = transform
 
@@ -81,7 +84,8 @@ class Video_Dataset(Dataset):
             indices[m] = self._get_offsets(vid_record, m)
             if self.frame_len[m] > 1:
                 frame_indices = (
-                    indices[m].repeat(self.frame_len[m]) + np.arange(self.frame_len[m])
+                    indices[m].repeat(self.frame_len[m])
+                    + np.tile(np.arange(self.frame_len[m]), self.num_segments)
                 ).astype(np.int64)
                 data[m] = self._get_frames(vid_record, m, vid_id, frame_indices)
             else:
@@ -145,43 +149,55 @@ class Video_Dataset(Dataset):
             img_y = cv2.imread(os.path.join(flow_path, flow_file_name[1]), 0)
             return [img_x, img_y]
         elif modality == "Audio":
-            sample = self._get_audio(vid_record, frame_idx, vid_id)
-            spec = self._get_spectrogram(sample)
+            spec = self._get_audio(vid_record, frame_idx, vid_id)
             return [spec]
 
     def _get_audio(self, vid_record, frame_idx, vid_id):
-        # start_sec = (frame_idx / self.cfg.DATA.IN_FPS) - (
-        #     self.cfg.DATA.AUDIO_LENGTH / 2
-        # )
         min_len = int(self.cfg.DATA.AUDIO_LENGTH * self.cfg.DATA.SAMPLING_RATE)
 
         start_frame = frame_idx - min_len // 2
 
         start_frame = max(0, min(start_frame, vid_record.end_frame["Audio"] - min_len))
 
-        aud_file = os.path.join(
-            self.cfg.DATA.DATA_DIR,
-            self.cfg.DATA.AUDIO_DIR_PREFIX,
-            "{}.{}".format(vid_id, self.aud_file_ext),
-        )
-
-        try:
-            sample, _ = lr.core.load(
-                aud_file,
-                sr=self.cfg.DATA.SAMPLING_RATE,
-                mono=True,
-                # offset=start_sec,
-                # duration=self.cfg.DATA.AUDIO_LENGTH,
+        if self.read_pickle:
+            npy_file = os.path.join(
+                self.cfg.DATA.DATA_DIR,
+                self.cfg.DATA.AUDIO_DIR_PREFIX,
+                "{}.npy".format(vid_id),
             )
-        except Exception as e:
-            print("Failed to read audio sample {} with error {}".format(aud_file, e))
+            try:
+                sample = np.load(npy_file)
+            except Exception as e:
+                print(
+                    "Failed to read audio sample {} with error {}".format(npy_file, e)
+                )
+        else:
+            aud_file = os.path.join(
+                self.cfg.DATA.DATA_DIR,
+                self.cfg.DATA.AUDIO_DIR_PREFIX,
+                "{}.{}".format(vid_id, self.aud_file_ext),
+            )
+            try:
+                sample, _ = lr.core.load(
+                    aud_file,
+                    sr=self.cfg.DATA.SAMPLING_RATE,
+                    mono=True,
+                    # offset=start_sec,
+                    # duration=self.cfg.DATA.AUDIO_LENGTH,
+                )
+            except Exception as e:
+                print(
+                    "Failed to read audio sample {} with error {}".format(aud_file, e)
+                )
 
         if sample.shape[0] < min_len:
             sample = np.pad(sample, (0, min_len - sample.shape[0]), mode="constant")
         if sample.shape[0] > min_len:
             sample = sample[start_frame : start_frame + min_len]
 
-        return sample
+        spec = self._get_spectrogram(sample)
+
+        return spec
 
     def _get_spectrogram(self, sample, window_size=10, step_size=5, eps=1e-6):
         nperseg = int(round(window_size * self.cfg.DATA.SAMPLING_RATE / 1e3))
