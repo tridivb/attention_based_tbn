@@ -17,10 +17,8 @@ from utils.log import setup_logger
 def parse_args():
     parser = argparse.ArgumentParser(description="main.py")
     parser.add_argument(
-        "--cfg",
-        dest="cfg",
-        help="cfg model file (/path/to/model_config.yaml)",
-        default="./config/config.yaml",
+        "cfg",
+        help="cfg model file (/path/to/config.yaml)",
         type=str,
     )
 
