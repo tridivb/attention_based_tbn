@@ -9,7 +9,7 @@ from tensorboardX import SummaryWriter
 from omegaconf import OmegaConf
 from datetime import datetime
 
-from train import train
+from train import run_trainer
 from test import test
 from utils.log import setup_logger
 
@@ -50,20 +50,23 @@ def main(args):
     else:
         log_root = cfg.LOG_DIR
 
-    # log_dir = os.path.join(log_root, log_dir)
-    # os.makedirs(log_dir, exist_ok=True)
-    # log_file = os.path.join(log_dir, "tbn.log")
+    log_dir = os.path.join(log_root, log_dir)
+    os.makedirs(log_dir, exist_ok=True)
+    log_file = os.path.join(log_dir, "tbn.log")
+    writer = SummaryWriter(logdir=log_dir)
 
-    # logger = setup_logger(log_file)
-    # logger.info("Initializing the pipeline...")
-    # logger.info(cfg.pretty())
-    # print("----------------------------------------------------------")
-    logger = None
+    logger = setup_logger(log_file)
+    logger.info("Initializing the pipeline...")
+    logger.info(cfg.pretty())
+    logger.info("----------------------------------------------------------")
 
-    torch.hub.set_dir("./weights")
+    # torch.hub.set_dir("./weights")
 
-    if cfg.TRAIN.TRAIN_ENABLE:
-        train(cfg, logger, modality)
+    try:
+        if cfg.TRAIN.TRAIN_ENABLE:
+            run_trainer(cfg, logger, modality, writer)
+    except Exception as e:
+        logger.exception(e)
 
 
 if __name__ == "__main__":

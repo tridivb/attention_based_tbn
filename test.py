@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import os
 import time
 import numpy as np
@@ -8,7 +10,8 @@ from tensorboardX import SummaryWriter
 
 from models.model_builder import build_model
 from utils.dataset import Video_Dataset
-from utils.misc import get_time_diff, calculate_topk_accuracy
+from utils.misc import get_time_diff
+from utils.metric import Metric
 from utils.transform import *
 
 
@@ -95,7 +98,7 @@ def test(cfg, logger, modality):
             loss = model.get_loss(criterion, target, out)
             test_loss += loss.item()
             for cls in test_acc.keys():
-                acc = calculate_topk_accuracy(out[cls], target[cls], topk=cfg.TEST.TOPK)
+                acc = calculate_metrics(out[cls], target[cls], topk=cfg.TEST.TOPK)
                 test_acc[cls] = [x + y for x, y in zip(test_acc[cls], acc)]
 
     test_loss /= no_test_batches
