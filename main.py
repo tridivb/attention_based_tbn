@@ -10,16 +10,14 @@ from omegaconf import OmegaConf
 from datetime import datetime
 
 from train import run_trainer
-from test import test
+from test import run_tester
 from utils.log import setup_logger
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description="main.py")
     parser.add_argument(
-        "cfg",
-        help="cfg model file (/path/to/config.yaml)",
-        type=str,
+        "cfg", help="cfg model file (/path/to/config.yaml)", type=str,
     )
 
     return parser.parse_args()

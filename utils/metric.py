@@ -14,7 +14,7 @@ class Metric(object):
 
         if target.size(0) < batch_size:
             assert batch_size % target.size(0) == 0
-            target = target.repeat(int(batch_size / target.size(0)))
+            target = target.repeat_interleave(batch_size // target.size(0))
 
         _, preds = out.topk(maxk, 1, True, True)
         preds = preds.t()
@@ -43,9 +43,9 @@ class Metric(object):
         fp = conf_mat.sum() - tp - fn - tn
 
         if tp + fp > 0:
-            precision = tp / (tp + fp)
+            precision = round(100 * (tp / (tp + fp)), 2)
 
         if tp + fn > 0:
-            recall = tp / (tp + fn)
+            recall = round(100 * (tp / (tp + fn)), 2)
 
         return precision, recall

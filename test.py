@@ -15,7 +15,69 @@ from utils.metric import Metric
 from utils.transform import *
 
 
-def test(cfg, logger, modality):
+def test(
+    cfg, model, data_loader, criterion, modality, logger, device=torch.device("cuda")
+):
+    no_batches = round(len(data_loader.dataset) / data_loader.batch_size)
+    dict_to_device = TransferTensorDict(device)
+    metric = Metric()
+
+    model.eval()
+    test_loss = 0
+    test_acc = {}
+    precision = {}
+    recall = {}
+    confusion_matrix = {}
+    predictions = []
+    for cls, no_cls in cfg.MODEL.NUM_CLASSES.items():
+        test_acc[cls] = [0] * (len(cfg.VAL.TOPK))
+        confusion_matrix[cls] = np.zeros((no_cls, no_cls))
+        precision[cls] = 0
+        recall[cls] = 0
+
+    with torch.no_grad():
+        for data, target in data_loader:
+            data = dict_to_device(data)
+
+            if isinstance(target, torch.tensor):
+                target = target.to(device)
+            elif isinstance(target, dict):
+                target = dict_to_device(target)
+
+            out = model(data)
+
+            if target != -1:
+                loss = model.get_loss(criterion, target, out)
+                test_loss += loss.item()
+                for cls in test_acc.keys():
+                    acc, conf_mat, prec, rec = metric.calculate_metrics(
+                        out[cls], target[cls], topk=cfg.VAL.TOPK
+                    )
+                    test_acc[cls] = [x + y for x, y in zip(test_acc[cls], acc)]
+                    precision[cls] += prec
+                    recall[cls] += rec
+                    confusion_matrix[cls] += conf_mat
+            else:
+                for cls in target.keys():
+                    _, preds = out[cls].max(1)
+                    predictions.extend(preds.tolist())
+
+    if test_loss > 0:
+        test_loss /= no_batches
+        for cls in test_acc.keys():
+            test_acc[cls] = [round(x / no_batches, 2) for x in test_acc[cls]]
+            precision[cls] /= no_batches
+            recall[cls] /= no_batches
+        return test_loss, test_acc, confusion_matrix, precision, recall
+    else:
+        return predictions
+
+
+def save_predictions():
+    raise Exception("Not implemented")
+
+
+def run_tester(cfg, logger, modality):
 
     if torch.cuda.is_available():
         device = torch.device("cuda")
@@ -78,37 +140,12 @@ def test(cfg, logger, modality):
 
     start_time = time.time()
 
-    model.eval()
-    test_loss = 0
-    test_acc = {}
-    for cls in cfg.MODEL.NUM_CLASSES:
-        test_acc[cls] = [0] * (len(cfg.TEST.TOPK))
-
-    with torch.no_grad():
-        for input, target in test_loader:
-            input, target = dict_to_device(input), dict_to_device(target)
-            for m in modality:
-                b, n, c, h, w = input[m].shape
-                input[m] = input[m].view(b * n, c, h, w)
-
-            for cls in input["target"].keys():
-                target[cls] = target[cls].repeat(cfg.DATA.NUM_SEGMENTS).to(device)
-
-            out = model(input)
-            loss = model.get_loss(criterion, target, out)
-            test_loss += loss.item()
-            for cls in test_acc.keys():
-                acc = calculate_metrics(out[cls], target[cls], topk=cfg.TEST.TOPK)
-                test_acc[cls] = [x + y for x, y in zip(test_acc[cls], acc)]
-
-    test_loss /= no_test_batches
-    for cls in test_acc.keys():
-        test_acc[cls] = [x / no_test_batches for x in test_acc[cls]]
+    results = test(cfg, model, test_loader, criterion, modality, logger, device)
 
     print("----------------------------------------------------------")
-    print("Test_Loss: {:5f}".format(test_loss))
+    print("Test_Loss: {:5f}".format(results))
     print("----------------------------------------------------------")
-    print("Validation Accuracy (Top {}): {}".format(cfg.TEST.TOPK, val_acc))
+    print("Validation Accuracy (Top {}): {}".format(cfg.TEST.TOPK, results))
     print("----------------------------------------------------------")
 
     hours, minutes, seconds = get_time_diff(start_time, time.time())

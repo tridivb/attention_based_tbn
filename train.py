@@ -255,11 +255,20 @@ def run_trainer(cfg, logger, modality, writer):
         if lr_scheduler:
             lr_scheduler.step()
 
+        val_loss, val_acc, confusion_matrix, precision, recall = validate(
+            cfg, model, val_loader, criterion, modality, logger, device
+        )
+
+        if val_loss < min_val_loss:
+            save_checkpoint(model, optimizer, epoch, filename=checkpoint_name)
+
         hours, minutes, seconds = get_time_diff(epoch_start_time, time.time())
 
         logger.info("----------------------------------------------------------")
         logger.info(
-            "Epoch: [{}/{}] || Train_loss: {:.5f}".format(epoch + 1, epochs, train_loss)
+            "Epoch: [{}/{}] || Train_loss: {:.5f} || Val_Loss: {:.5f}".format(
+                epoch + 1, epochs, train_loss, val_loss
+            )
         )
         logger.info("----------------------------------------------------------")
         logger.info(
@@ -268,17 +277,6 @@ def run_trainer(cfg, logger, modality, writer):
             )
         )
         logger.info("----------------------------------------------------------")
-
-        val_loss, val_acc, confusion_matrix, precision, recall = validate(
-            cfg, model, val_loader, criterion, modality, logger, device
-        )
-
-        if val_loss < min_val_loss:
-            save_checkpoint(model, optimizer, epoch, filename=checkpoint_name)
-
-        logger.info(
-            "Epoch: [{}/{}] || Val_Loss: {:.5f}".format(epoch + 1, epochs, val_loss)
-        )
         logger.info("Accuracy Top {}:".format(cfg.VAL.TOPK))
         logger.info(json.dumps(val_acc, indent=2))
         logger.info("Precision: {}".format(json.dumps(precision, indent=2)))
