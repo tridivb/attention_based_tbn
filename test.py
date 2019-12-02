@@ -2,6 +2,7 @@
 
 import os
 import time
+import json
 import numpy as np
 import torch
 import torchvision
@@ -73,7 +74,7 @@ def test(
         return predictions
 
 
-def save_predictions():
+def save_predictions(results):
     raise Exception("Not implemented")
 
 
@@ -130,23 +131,25 @@ def run_tester(cfg, logger, modality):
     test_loader = DataLoader(
         test_dataset,
         batch_size=cfg.TRAIN.BATCH_SIZE,
-        shuffle=True,
+        shuffle=False,
         num_workers=cfg.NUM_WORKERS,
     )
-
-    no_test_batches = len(test_loader.dataset) // test_loader.batch_size
-
-    dict_to_device = TransferTensorDict(device)
 
     start_time = time.time()
 
     results = test(cfg, model, test_loader, criterion, modality, logger, device)
 
-    print("----------------------------------------------------------")
-    print("Test_Loss: {:5f}".format(results))
-    print("----------------------------------------------------------")
-    print("Validation Accuracy (Top {}): {}".format(cfg.TEST.TOPK, results))
-    print("----------------------------------------------------------")
+    if isinstance(results, tuple):
+        print("----------------------------------------------------------")
+        print("Test_Loss: {:5f}".format(results[0]))
+        print("----------------------------------------------------------")
+        print("Accuracy Top {}:".format(cfg.VAL.TOPK))
+        print(json.dumps(results[1], indent=2))
+        print("Precision: {:.2f}".format(json.dumps(results[2], indent=2)))
+        print("Recall: {:.2f}".format(json.dumps(results[3], indent=2)))
+        print("----------------------------------------------------------")
+    else:
+        save_predictions(results)
 
     hours, minutes, seconds = get_time_diff(start_time, time.time())
     print(

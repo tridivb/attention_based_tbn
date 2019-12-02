@@ -279,8 +279,8 @@ def run_trainer(cfg, logger, modality, writer):
         logger.info("----------------------------------------------------------")
         logger.info("Accuracy Top {}:".format(cfg.VAL.TOPK))
         logger.info(json.dumps(val_acc, indent=2))
-        logger.info("Precision: {}".format(json.dumps(precision, indent=2)))
-        logger.info("Recall: {}".format(json.dumps(recall, indent=2)))
+        logger.info("Precision: {:.2f}".format(json.dumps(precision, indent=2)))
+        logger.info("Recall: {:.2f}".format(json.dumps(recall, indent=2)))
         logger.info("----------------------------------------------------------")
 
         plotter.plot_scalar(train_loss, epoch, "train/loss")

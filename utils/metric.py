@@ -39,8 +39,8 @@ class Metric(object):
 
         tn = conf_mat[0, 0]
         tp = np.trace(conf_mat[1:, 1:])
-        fn = conf_mat[:, 0].sum() - tn
-        fp = conf_mat.sum() - tp - fn - tn
+        fn = conf_mat[1:, 0].sum()
+        fp = conf_mat[:, 1:].sum() - tp
 
         if tp + fp > 0:
             precision = round(100 * (tp / (tp + fp)), 2)

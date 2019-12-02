@@ -49,12 +49,14 @@ TRAIN:
   LR_DECAY: 1e-6
   FREEZE_BASE: False
   FREEZE_FUSION: False
+  NUM_SEGMENTS: 3
 # Validation Parameters
 VAL:
   VID_LIST: "./data/val_split.txt"
   BATCH_SIZE: 22
   PRE_TRAINED: ""
   TOPK: [1, 5]
+  NUM_SEGMENTS: 3
   # Test Parameters
 TEST:
   TEST_ENABLE: True
@@ -62,6 +64,7 @@ TEST:
   BATCH_SIZE: 22
   PRE_TRAINED: ""
   TOPK: [1, 5]
+  NUM_SEGMENTS: 25
 # Misc
 LOG_DIR: ""
 NUM_WORKERS: 8 
