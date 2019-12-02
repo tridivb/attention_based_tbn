@@ -164,7 +164,9 @@ def run_trainer(cfg, logger, modality, writer):
         if m == "RGB":
             train_transforms[m] = torchvision.transforms.Compose(
                 [
-                    MultiScaleCrop(cfg.DATA.TRAIN_CROP_SIZE, [1, 0.875, 0.75, 0.66]),
+                    MultiScaleCrop(
+                        cfg.DATA.TRAIN_CROP_SIZE, [1, 0.875, 0.75, 0.66], is_flow=False
+                    ),
                     RandomHorizontalFlip(prob=0.5, is_flow=False),
                     Stack(m),
                     ToTensor(),
@@ -177,7 +179,6 @@ def run_trainer(cfg, logger, modality, writer):
                     CenterCrop(cfg.DATA.TEST_CROP_SIZE),
                     Stack(m),
                     ToTensor(),
-                    Normalize(cfg.DATA.RGB_MEAN, cfg.DATA.RGB_STD),
                 ]
             )
         elif m == "Flow":
@@ -198,7 +199,6 @@ def run_trainer(cfg, logger, modality, writer):
                     CenterCrop(cfg.DATA.TEST_CROP_SIZE),
                     Stack(m),
                     ToTensor(),
-                    Normalize(cfg.DATA.FLOW_MEAN, cfg.DATA.FLOW_STD),
                 ]
             )
         elif m == "Audio":

@@ -345,6 +345,7 @@ class Normalize(object):
             self.mean = self.mean.repeat(tensor.size(1))
         if self.std.size(0) < tensor.size(1):
             self.std = self.std.repeat(tensor.size(1))
+
         rep_mean = self.mean.reshape(1, self.mean.size(0), 1, 1)
         rep_std = self.std.reshape(1, self.std.size(0), 1, 1)
 

@@ -80,7 +80,9 @@ class TBNModel(nn.Module):
         for key in target.keys():
             if target[key].shape[0] < preds[key].shape[0]:
                 assert preds[key].shape[0] % target[key].shape[0] == 0
-                labels = target[key].repeat(preds[key].shape[0] // target[key].shape[0])
+                labels = target[key].repeat_interleave(preds[key].shape[0] // target[key].shape[0])
+            else:
+                labels = target
             loss += criterion(preds[key], labels)
 
         return loss

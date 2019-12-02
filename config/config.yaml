@@ -40,7 +40,7 @@ TRAIN:
   TRAIN_ENABLE: True
   VID_LIST: "./data/train_split.txt"
   OPTIM: "sgd"
-  BATCH_SIZE: 16
+  BATCH_SIZE: 22 
   EPOCHS: 25
   LR: 1e-2
   MOMENTUM: 0.9
@@ -52,17 +52,17 @@ TRAIN:
 # Validation Parameters
 VAL:
   VID_LIST: "./data/val_split.txt"
-  BATCH_SIZE: 16
+  BATCH_SIZE: 22
   PRE_TRAINED: ""
   TOPK: [1, 5]
   # Test Parameters
 TEST:
   TEST_ENABLE: True
   VID_LIST: "./data/val_split.txt"
-  BATCH_SIZE: 16
+  BATCH_SIZE: 22
   PRE_TRAINED: ""
   TOPK: [1, 5]
 # Misc
 LOG_DIR: ""
-NUM_WORKERS: 12
+NUM_WORKERS: 8 
 NUM_GPUS: 1
