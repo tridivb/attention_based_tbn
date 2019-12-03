@@ -6,6 +6,10 @@ class EpicVideoRecord(VideoRecord):
         self._series = record
 
     @property
+    def action_id(self):
+        return self._series["uid"]
+    
+    @property
     def untrimmed_video_name(self):
         return self._series["video_id"]
 
@@ -41,5 +45,5 @@ class EpicVideoRecord(VideoRecord):
                 "noun": self._series["noun_class"],
             }
         else:  # Fake label to deal with the test sets (S1/S2) that dont have any labels
-            label = -10000
+            label = -1
         return label

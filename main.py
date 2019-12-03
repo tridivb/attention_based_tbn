@@ -41,10 +41,8 @@ def main(args):
     log_dir = "run_{}_{}_{}_{}".format(
         cfg.MODEL.ARCH, cfg.DATA.DATASET, "-".join(modality), timestamp
     )
-    if cfg.LOG_DIR == "":
-        log_root = "./log"
-    else:
-        log_root = cfg.LOG_DIR
+    
+    log_root = cfg.LOG_DIR if cfg.LOG_DIR else "./log"
 
     log_dir = os.path.join(log_root, log_dir)
     os.makedirs(log_dir, exist_ok=True)
@@ -61,6 +59,12 @@ def main(args):
     try:
         if cfg.TRAIN.TRAIN_ENABLE:
             run_trainer(cfg, logger, modality, writer)
+    except Exception as e:
+        logger.exception(e)
+
+    try:
+        if cfg.TEST.TEST_ENABLE:
+            run_tester(cfg, logger, modality)
     except Exception as e:
         logger.exception(e)
 

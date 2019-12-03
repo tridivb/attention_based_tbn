@@ -12,10 +12,6 @@ class Metric(object):
         batch_size = out.size(0)
         conf_mat = np.zeros((out.size(1), out.size(1)))
 
-        if target.size(0) < batch_size:
-            assert batch_size % target.size(0) == 0
-            target = target.repeat_interleave(batch_size // target.size(0))
-
         _, preds = out.topk(maxk, 1, True, True)
         preds = preds.t()
         correct = preds.eq(target.view(1, -1).expand_as(preds))
@@ -37,15 +33,15 @@ class Metric(object):
         precision = 0
         recall = 0
 
-        tn = conf_mat[0, 0]
+        # tn = conf_mat[0, 0]
         tp = np.trace(conf_mat[1:, 1:])
         fn = conf_mat[1:, 0].sum()
-        fp = conf_mat[:, 1:].sum() - tp
+        fp = conf_mat[1:, 1:].sum() - tp
 
         if tp + fp > 0:
-            precision = round(100 * (tp / (tp + fp)), 2)
+            precision = 100 * tp / (tp + fp)
 
         if tp + fn > 0:
-            recall = round(100 * (tp / (tp + fn)), 2)
+            recall = 100 * tp / (tp + fn)
 
         return precision, recall

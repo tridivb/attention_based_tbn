@@ -76,7 +76,7 @@ def validate(
         recall[cls] = 0
 
     with torch.no_grad():
-        for data, target in data_loader:
+        for data, target, _ in data_loader:
             data, target = dict_to_device(data), dict_to_device(target)
 
             out = model(data)
@@ -95,18 +95,15 @@ def validate(
     val_loss /= no_batches
     for cls in val_acc.keys():
         val_acc[cls] = [round(x / no_batches, 2) for x in val_acc[cls]]
-        precision[cls] /= no_batches
-        recall[cls] /= no_batches
+        precision[cls] = round(precision[cls] / no_batches, 2)
+        recall[cls] = round(recall[cls] / no_batches, 2)
 
     return val_loss, val_acc, confusion_matrix, precision, recall
 
 
 def run_trainer(cfg, logger, modality, writer):
 
-    if torch.cuda.is_available():
-        device = torch.device("cuda")
-    else:
-        device = torch.device("cpu")
+    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
     epochs = cfg.TRAIN.EPOCHS
 
@@ -115,15 +112,13 @@ def run_trainer(cfg, logger, modality, writer):
     logger.info("Model initialized.")
     logger.info("----------------------------------------------------------")
 
-    if cfg.MODEL.CHECKPOINT:
+    if cfg.TRAIN.PRE_TRAINED:
         logger.info("Loading pre-trained weights...")
-        model.load_state_dict(torch.load(cfg.MODEL.CHECKPOINT))
+        model.load_state_dict(torch.load(cfg.TRAIN.PRE_TRAINED))
         logger.info("Done.")
         logger.info("----------------------------------------------------------")
 
-    checkpoint_name = os.path.join(
-        "./weights", "model_{}_{}.pth".format(cfg.MODEL.ARCH, "_".join(modality))
-    )
+    checkpoint_name = cfg.MODEL.CHECKPOINT
 
     if cfg.TRAIN.OPTIM.lower() == "sgd":
         optimizer = optim.SGD(
@@ -148,7 +143,7 @@ def run_trainer(cfg, logger, modality, writer):
 
     model, criterion = model.to(device), criterion.to(device)
 
-    logger.info("Creating list of training and validation videos...")
+    logger.info("Reading list of training and validation videos...")
     with open(cfg.TRAIN.VID_LIST) as f:
         train_list = [x.strip() for x in f.readlines() if len(x.strip()) > 0]
 
@@ -220,7 +215,7 @@ def run_trainer(cfg, logger, modality, writer):
         val_list,
         modality,
         transform=val_transforms,
-        mode="val",
+        mode="test",
         read_pickle=cfg.DATA.READ_AUDIO_PICKLE,
     )
 
@@ -279,8 +274,8 @@ def run_trainer(cfg, logger, modality, writer):
         logger.info("----------------------------------------------------------")
         logger.info("Accuracy Top {}:".format(cfg.VAL.TOPK))
         logger.info(json.dumps(val_acc, indent=2))
-        logger.info("Precision: {:.2f}".format(json.dumps(precision, indent=2)))
-        logger.info("Recall: {:.2f}".format(json.dumps(recall, indent=2)))
+        logger.info("Precision: {}".format(json.dumps(precision, indent=2)))
+        logger.info("Recall: {}".format(json.dumps(recall, indent=2)))
         logger.info("----------------------------------------------------------")
 
         plotter.plot_scalar(train_loss, epoch, "train/loss")

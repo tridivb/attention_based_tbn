@@ -41,7 +41,10 @@ class Video_Dataset(Dataset):
 
         self.transform = transform
 
-        annotation_file = cfg.DATA.ANNOTATION_FILE
+        if self.mode in ["train", "val"]:
+            annotation_file = cfg.DATA.ANNOTATION_FILE
+        elif self.mode == "test":
+            annotation_file = cfg.DATA.TEST_TIMESTAMPS
 
         self.frame_len = {}
         for m in self.modality:
@@ -94,10 +97,13 @@ class Video_Dataset(Dataset):
 
         target = vid_record.label
 
-        return data, target
+        if self.mode == "train":
+            return data, target
+        else:
+            return data, target, vid_record.action_id
 
     def _get_offsets(self, vid_record, modality):
-        seg_len = vid_record.num_frames[modality] // self.num_segments
+        seg_len = (vid_record.num_frames[modality] - self.frame_len[modality] + 1) // self.num_segments
         if self.mode == "train" and seg_len > 0:
             offsets = np.random.randint(seg_len, size=self.num_segments)
             indices = (
@@ -105,7 +111,7 @@ class Video_Dataset(Dataset):
                 + np.arange(0, self.num_segments) * seg_len
                 + offsets
             )
-        elif self.mode == "val" and seg_len > 0:
+        elif self.mode in ["test", "val"] and seg_len >= self.frame_len[modality]:
             offsets = (
                 (seg_len - self.frame_len[modality] + 1)
                 // 2
