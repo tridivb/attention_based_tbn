@@ -58,12 +58,14 @@ def main(args):
 
     try:
         if cfg.TRAIN.TRAIN_ENABLE:
+            logger.info("Training the model.")
             run_trainer(cfg, logger, modality, writer)
     except Exception as e:
         logger.exception(e)
 
     try:
         if cfg.TEST.TEST_ENABLE:
+            logger.info("Evaluating the model.")
             run_tester(cfg, logger, modality)
     except Exception as e:
         logger.exception(e)

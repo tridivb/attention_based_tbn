@@ -9,7 +9,7 @@ DATA:
   USE_RGB: True
   USE_FLOW: True
   USE_AUDIO: True
-  OUT_DIR: ""
+  OUT_DIR: "./log"
   IN_FPS: 60
   OUT_FPS: 30
   FRAME_FILE_EXT: "jpg"
@@ -26,7 +26,7 @@ DATA:
   TRAIN_CROP_SIZE: 224
   TEST_SCALE_SIZE: 256
   TEST_CROP_SIZE: 256
-  TEST_TIMESTAMPS: "/media/data/tridiv/epic_kitchens/annotations/EPIC_test_s1_timestamps.csv"
+  TEST_TIMESTAMPS: "/media/data/tridiv/epic_kitchens/annotations/EPIC_test_s2_timestamps.csv"
 # Model Parameters
 MODEL:
   ARCH: "bninception"
@@ -70,7 +70,7 @@ TEST:
   TOPK: [1, 5]
   NUM_SEGMENTS: 25
   SAVE_RESULTS:  True
-  RESULTS_FILE: "seen.json"
+  RESULTS_FILE: "unseen.json"
   PRE_TRAINED: ""
 # Misc
 LOG_DIR: "./log"

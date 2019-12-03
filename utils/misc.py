@@ -29,16 +29,19 @@ def save_scores(scores, file_name):
     out_result["challenge"] = "action_recognition"
 
     for key in scores.keys():
-        scores[key] = torch.cat(scores[key], dim=0)
+        scores[key] = np.concatenate(scores[key], axis=0)
 
     results = {}
-    no_of_ids = scores["action_id"].size(0)
+
+    no_of_ids = scores["action_id"].shape[0]
+
     for idx in range(no_of_ids):
-        a_id = scores["action_id"][idx].item()
+        a_id = str(scores["action_id"][idx])
+        results[a_id] = {}
         for cls in scores.keys():
             if cls != "action_id":
-                results[a_id] = {
-                    cls: {id: score.item() for id, score in enumerate(scores[cls][idx])}
+                results[a_id][cls] = {
+                    str(id): score.item() for id, score in enumerate(scores[cls][idx])
                 }
 
     out_result["results"] = results

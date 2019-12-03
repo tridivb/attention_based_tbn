@@ -68,7 +68,7 @@ class TBNModel(nn.Module):
             param.requires_grad = requires_grad
 
     def _aggregate_scores(self, scores, new_shape=(1, -1)):
-        assert isinstance(scores, (dict, torch.tensor))
+        assert isinstance(scores, (dict, torch.Tensor))
         assert isinstance(new_shape, tuple)
 
         if isinstance(scores, dict):
@@ -136,14 +136,13 @@ class Classifier(nn.Module):
     def __init__(self, num_classes, in_features, use_softmax=False):
         super(Classifier, self).__init__()
 
-        for class_name in num_classes.keys():
-            self.add_module(class_name, nn.Linear(in_features, num_classes[class_name]))
-
         self.num_classes = num_classes
         self.use_softmax = use_softmax
-
-        if self.use_softmax:
-            self.softmax = nn.Softmax(dim=1)
+        
+        for cls in num_classes.keys():
+            self.add_module(cls, nn.Linear(in_features, self.num_classes[cls]))
+            if self.use_softmax:
+                self.add_module("{}_softmax".format(cls), nn.Softmax(dim=1))
 
     def forward(self, input):
         out = {}
@@ -151,6 +150,7 @@ class Classifier(nn.Module):
             classifier = getattr(self, cls)
             out[cls] = classifier(input)
             if self.use_softmax:
-                out[cls] = self.softmax(out[cls])
+                softmax = getattr(self, "{}_softmax".format(cls))
+                out[cls] = softmax(out[cls])
 
         return out

@@ -51,7 +51,7 @@ def test(
 
             out = model(data)
 
-            if target != -1:
+            if isinstance(target, torch.Tensor) and target.unique().item() != -1:
                 loss = model.get_loss(criterion, target, out)
                 test_loss += loss.item()
                 for cls in test_acc.keys():
@@ -64,9 +64,11 @@ def test(
                     confusion_matrix[cls] += conf_mat
                     
             
-            results["action_id"].extend([action_id])
+            results["action_id"].extend([action_id.numpy()])
             for cls in out.keys():
-                results[cls].extend([out[cls]])
+                results[cls].extend([out[cls].cpu().numpy() if out[cls].is_cuda else out[cls].numpy()])
+
+            break
 
     if test_loss > 0:
         test_loss /= no_batches
