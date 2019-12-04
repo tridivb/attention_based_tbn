@@ -1,3 +1,4 @@
+import os
 import torch
 import torch.nn as nn
 import torchvision
@@ -59,7 +60,13 @@ class TBNModel(nn.Module):
         elif "resnet" in self.base_model_name:
             base_model = Resnet(self.base_model_name, modality, in_channels)
         elif self.base_model_name == "bninception":
-            base_model = bninception(in_channels, modality, pretrained="imagenet")
+            pretrained = "kinetics" if modality == "Flow" else "imagenet"
+            base_model = bninception(
+                in_channels,
+                modality,
+                model_dir=os.path.join(self.cfg.DATA.OUT_DIR, "checkpoint"),
+                pretrained=pretrained,
+            )
 
         return base_model
 
@@ -138,7 +145,7 @@ class Classifier(nn.Module):
 
         self.num_classes = num_classes
         self.use_softmax = use_softmax
-        
+
         for cls in num_classes.keys():
             self.add_module(cls, nn.Linear(in_features, self.num_classes[cls]))
             if self.use_softmax:
