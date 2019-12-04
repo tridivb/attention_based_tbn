@@ -9,7 +9,7 @@ DATA:
   USE_RGB: True
   USE_FLOW: True
   USE_AUDIO: True
-  OUT_DIR: "./log"
+  OUT_DIR: "/media/remote_home/tridiv/attention_based_tbn/log"
   IN_FPS: 60
   OUT_FPS: 30
   FRAME_FILE_EXT: "jpg"
@@ -36,15 +36,15 @@ MODEL:
   }
   AGG_TYPE: "avg"
   FUSION_DROPOUT: 0.5
-  USE_SOFTMAX: True
-  CHECKPOINT: ""
+  USE_SOFTMAX: False
+  CHECKPOINT_DIR: "/media/remote_home/tridiv/attention_based_tbn/weights"
 # Train Parameters
 TRAIN:
-  TRAIN_ENABLE: False
+  TRAIN_ENABLE: True
   VID_LIST: "./data/train_split.txt"
   OPTIM: "sgd"
   BATCH_SIZE: 22 
-  EPOCHS: 25
+  EPOCHS: 80
   LR: 1e-2
   MOMENTUM: 0.9
   WEIGHT_DECAY: 0
@@ -53,17 +53,17 @@ TRAIN:
   FREEZE_BASE: False
   FREEZE_FUSION: False
   NUM_SEGMENTS: 3
-  PRE_TRAINED: ""
+  PRE_TRAINED: "/media/remote_home/tridiv/attention_based_tbn/weights/epic_bninception_RGB_Flow_Audio.pth"
 # Validation Parameters
 VAL:
   VID_LIST: "./data/val_split.txt"
-  BATCH_SIZE: 64
+  BATCH_SIZE: 48
   PRE_TRAINED: ""
   TOPK: [1, 5]
   NUM_SEGMENTS: 3
   # Test Parameters
 TEST:
-  TEST_ENABLE: True
+  TEST_ENABLE: False
   VID_LIST: ""
   BATCH_SIZE: 64
   PRE_TRAINED: ""
@@ -73,6 +73,6 @@ TEST:
   RESULTS_FILE: "unseen.json"
   PRE_TRAINED: ""
 # Misc
-LOG_DIR: "./log"
+LOG_DIR: "/media/remote_home/tridiv/attention_based_tbn/log"
 NUM_WORKERS: 8 
 NUM_GPUS: 1

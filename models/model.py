@@ -64,7 +64,7 @@ class TBNModel(nn.Module):
             base_model = bninception(
                 in_channels,
                 modality,
-                model_dir=os.path.join(self.cfg.DATA.OUT_DIR, "checkpoint"),
+                model_dir=self.cfg.MODEL.CHECKPOINT_DIR,
                 pretrained=pretrained,
             )
 

@@ -108,7 +108,7 @@ def run_tester(cfg, logger, modality):
 
     logger.info("Loading pre-trained weights {}...".format(pre_trained))
     data_dict = torch.load(pre_trained, map_location="cpu")
-    model.load_state_dict(data_dict["state_dict"])
+    model.load_state_dict(data_dict["model"])
     logger.info("Done.")
     logger.info("----------------------------------------------------------")
 

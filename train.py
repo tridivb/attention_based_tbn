@@ -59,7 +59,7 @@ def train(
 def validate(
     cfg, model, data_loader, criterion, modality, logger, device=torch.device("cuda")
 ):
-    no_batches = round(len(data_loader.dataset) / data_loader.batch_size)
+    no_batches = len(data_loader.dataset) // data_loader.batch_size
     dict_to_device = TransferTensorDict(device)
     metric = Metric()
 
@@ -103,7 +103,7 @@ def validate(
 
 def run_trainer(cfg, logger, modality, writer):
 
-    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     epochs = cfg.TRAIN.EPOCHS
 
@@ -111,14 +111,6 @@ def run_trainer(cfg, logger, modality, writer):
     model = build_model(cfg, modality)
     logger.info("Model initialized.")
     logger.info("----------------------------------------------------------")
-
-    if cfg.TRAIN.PRE_TRAINED:
-        logger.info("Loading pre-trained weights...")
-        model.load_state_dict(torch.load(cfg.TRAIN.PRE_TRAINED))
-        logger.info("Done.")
-        logger.info("----------------------------------------------------------")
-
-    checkpoint_name = cfg.MODEL.CHECKPOINT
 
     if cfg.TRAIN.OPTIM.lower() == "sgd":
         optimizer = optim.SGD(
@@ -140,6 +132,26 @@ def run_trainer(cfg, logger, modality, writer):
         lr_scheduler = None
 
     criterion = torch.nn.CrossEntropyLoss()
+
+    if cfg.TRAIN.PRE_TRAINED:
+        logger.info("Loading pre-trained weights...")
+        data_dict = torch.load(cfg.TRAIN.PRE_TRAINED, map_location="cpu")
+        model.load_state_dict(data_dict["model"])
+        optimizer.load_state_dict(data_dict["optimizer"])
+        start_epoch = data_dict["epoch"] + 1
+        logger.info(
+            "Model will continue training from epoch no {}".format(start_epoch + 1)
+        )
+        logger.info("Done.")
+        logger.info("----------------------------------------------------------")
+
+    else:
+        start_epoch = 0
+
+    checkpoint_name = "{}_{}.pth".format(cfg.MODEL.ARCH, "_".join(modality))
+    if cfg.MODEL.CHECKPOINT_PREFIX:
+        checkpoint_name = cfg.MODEL.CHECKPOINT_PREFIX + "_" + checkpoint_name
+    checkpoint = os.path.join(cfg.DATA.OUT_DIR, "checkpoint", checkpoint_name,)
 
     model, criterion = model.to(device), criterion.to(device)
 
@@ -215,7 +227,7 @@ def run_trainer(cfg, logger, modality, writer):
         val_list,
         modality,
         transform=val_transforms,
-        mode="test",
+        mode="val",
         read_pickle=cfg.DATA.READ_AUDIO_PICKLE,
     )
 
@@ -241,7 +253,7 @@ def run_trainer(cfg, logger, modality, writer):
     logger.info("Training in progress...")
     start_time = time.time()
 
-    for epoch in range(epochs):
+    for epoch in range(start_epoch, epochs, 1):
         epoch_start_time = time.time()
         train_loss = train(
             cfg, model, train_loader, optimizer, criterion, modality, logger, device
@@ -250,12 +262,16 @@ def run_trainer(cfg, logger, modality, writer):
         if lr_scheduler:
             lr_scheduler.step()
 
+        logger.info("Validation in progress...")
+
         val_loss, val_acc, confusion_matrix, precision, recall = validate(
             cfg, model, val_loader, criterion, modality, logger, device
         )
 
         if val_loss < min_val_loss:
-            save_checkpoint(model, optimizer, epoch, filename=checkpoint_name)
+            save_checkpoint(
+                model, optimizer, epoch, confusion_matrix, filename=checkpoint
+            )
 
         hours, minutes, seconds = get_time_diff(epoch_start_time, time.time())
 

@@ -41,7 +41,7 @@ def main(args):
     log_dir = "run_{}_{}_{}_{}".format(
         cfg.MODEL.ARCH, cfg.DATA.DATASET, "-".join(modality), timestamp
     )
-    
+
     log_root = cfg.LOG_DIR if cfg.LOG_DIR else "./log"
 
     log_dir = os.path.join(log_root, log_dir)
@@ -49,12 +49,12 @@ def main(args):
     log_file = os.path.join(log_dir, "tbn.log")
     writer = SummaryWriter(logdir=log_dir)
 
+    os.makedirs(cfg.DATA.OUT_DIR, exist_ok=True)
+
     logger = setup_logger(log_file)
     logger.info("Initializing the pipeline...")
     logger.info(cfg.pretty())
     logger.info("----------------------------------------------------------")
-
-    # torch.hub.set_dir("./weights")
 
     try:
         if cfg.TRAIN.TRAIN_ENABLE:

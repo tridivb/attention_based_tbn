@@ -10,12 +10,17 @@ def get_time_diff(start_time, end_time):
     return (hours, minutes, seconds)
 
 
-def save_checkpoint(model, optimizer, epoch, scheduler=None, filename="checkpoint.pth"):
+def save_checkpoint(
+    model, optimizer, epoch, confusion_matrix, scheduler=None, filename="checkpoint.pth"
+):
     data = {
         "epoch": epoch,
         "model": model.state_dict(),
         "optimizer": optimizer.state_dict(),
     }
+    if confusion_matrix:
+        data["conf_mat"] = confusion_matrix
+
     if scheduler:
         data["scheduler"] = scheduler.state_dict()
 
