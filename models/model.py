@@ -7,7 +7,6 @@ import numpy as np
 from models.vgg import VGG
 from models.resnet import Resnet
 from models.bn_inception import bninception
-from utils.transform import MultiScaleCrop, RandomHorizontalFlip, ToTensor
 
 
 class TBNModel(nn.Module):

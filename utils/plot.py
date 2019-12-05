@@ -28,9 +28,3 @@ class Plotter(object):
                     self.writer.add_scalar(plot_name, v, epoch)
             elif isinstance(val, (float, int)):
                 self.writer.add_scalar(plot_header, val, epoch)
-
-    def plot_precision(self):
-        raise Exception("not implemented")
-
-    def plot_recall(self):
-        raise Exception("not implemented")

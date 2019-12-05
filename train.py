@@ -11,11 +11,11 @@ from torch.utils.data.dataloader import DataLoader
 from tensorboardX import SummaryWriter
 
 from models.model_builder import build_model
-from utils.dataset import Video_Dataset
+from dataset.dataset import Video_Dataset
 from utils.misc import get_time_diff, save_checkpoint
 from utils.plot import Plotter
 from utils.metric import Metric
-from utils.transform import *
+from dataset.transform import *
 
 
 def train(
@@ -148,12 +148,16 @@ def run_trainer(cfg, logger, modality, writer):
     else:
         start_epoch = 0
 
-    checkpoint_name = "{}_{}.pth".format(cfg.MODEL.ARCH, "_".join(modality))
-    if cfg.MODEL.CHECKPOINT_PREFIX:
-        checkpoint_name = cfg.MODEL.CHECKPOINT_PREFIX + "_" + checkpoint_name
-    checkpoint = os.path.join(cfg.DATA.OUT_DIR, "checkpoint", checkpoint_name,)
+    checkpoint_name = "tbn_{}_{}.pth".format(cfg.MODEL.ARCH, "_".join(modality))
+    if cfg.DATA.DATASET:
+        checkpoint_name = cfg.DATA.DATASET + "_" + checkpoint_name
+    checkpoint = os.path.join(cfg.MODEL.CHECKPOINT_DIR, checkpoint_name)
 
-    model, criterion = model.to(device), criterion.to(device)
+    if cfg.NUM_GPUS > 1:
+        model = torch.nn.DataParallel(model, device_ids=cfg.GPU_IDS)
+        criterion = torch.nn.DataParallel(criterion, device_ids=cfg.GPU_IDS)
+    else:
+        model, criterion = model.to(device), criterion.to(device)
 
     logger.info("Reading list of training and validation videos...")
     with open(cfg.TRAIN.VID_LIST) as f:

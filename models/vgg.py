@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 from torchvision import models
 import numpy as np
-from torch.hub import load_state_dict_from_url
 
 
 class VGG(nn.Module):

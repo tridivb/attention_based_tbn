@@ -12,10 +12,10 @@ from torch.utils.data.dataloader import DataLoader
 from tensorboardX import SummaryWriter
 
 from models.model_builder import build_model
-from utils.dataset import Video_Dataset
+from dataset.dataset import Video_Dataset
 from utils.misc import get_time_diff, save_scores
 from utils.metric import Metric
-from utils.transform import *
+from dataset.transform import *
 
 
 def test(
@@ -96,15 +96,9 @@ def run_tester(cfg, logger, modality):
     elif cfg.TRAIN.PRE_TRAINED:
         pre_trained = cfg.TRAIN.PRE_TRAINED
     else:
-        pre_trained = os.path.join(
-            cfg.DATA.OUT_DIR,
-            "checkpoints",
-            "epic_{}_{}.pth".format(cfg.MODEL.ARCH, "_".join(modality)),
+        logger.exception(
+            "No pre-trained weights exist. Please set the PRE_TRAINED parameter for either TRAIN or TEST in config file."
         )
-        if not os.path.exists(pre_trained):
-            logger.exception(
-                "No pre-trained weights exist. Please set the PRE_TRAINED paramter for either TRAIN or TEST in config file."
-            )
 
     logger.info("Loading pre-trained weights {}...".format(pre_trained))
     data_dict = torch.load(pre_trained, map_location="cpu")
@@ -114,7 +108,11 @@ def run_tester(cfg, logger, modality):
 
     criterion = torch.nn.CrossEntropyLoss()
 
-    model, criterion = model.to(device), criterion.to(device)
+    if cfg.NUM_GPUS > 1:
+        model = torch.nn.DataParallel(model, device_ids=cfg.GPU_IDS)
+        criterion = torch.nn.DataParallel(criterion, device_ids=cfg.GPU_IDS)
+    else:
+        model, criterion = model.to(device), criterion.to(device)
 
     logger.info("Reading list of test videos...")
     if cfg.TEST.VID_LIST:
