@@ -8,7 +8,6 @@ from torch.utils.data import Dataset
 from torch import Tensor
 import torchvision.transforms.functional as F
 import librosa as lr
-from parse import parse
 import pandas as pd
 
 from .epic_record import EpicVideoRecord

@@ -1,0 +1,9 @@
+argparse
+librosa
+numpy
+omegaconf
+pandas
+pretrainedmodels
+torch
+torchvision
+tensorboardX
