@@ -7,3 +7,4 @@ pretrainedmodels
 torch
 torchvision
 tensorboardX
+opencv-python
