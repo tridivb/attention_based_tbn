@@ -108,7 +108,7 @@ def run_trainer(cfg, logger, modality, writer):
     epochs = cfg.TRAIN.EPOCHS
 
     logger.info("Initializing model...")
-    model = build_model(cfg, modality)
+    model, criterion = build_model(cfg, modality, device)
     logger.info("Model initialized.")
     logger.info("----------------------------------------------------------")
 
@@ -131,8 +131,6 @@ def run_trainer(cfg, logger, modality, writer):
         )
         lr_scheduler = None
 
-    criterion = torch.nn.CrossEntropyLoss()
-
     if cfg.TRAIN.PRE_TRAINED:
         logger.info("Loading pre-trained weights...")
         data_dict = torch.load(cfg.TRAIN.PRE_TRAINED, map_location="cpu")
@@ -150,14 +148,8 @@ def run_trainer(cfg, logger, modality, writer):
 
     checkpoint_name = "tbn_{}_{}.pth".format(cfg.MODEL.ARCH, "_".join(modality))
     if cfg.DATA.DATASET:
-        checkpoint_name = cfg.DATA.DATASET + "_" + checkpoint_name
+        checkpoint_name = "_".join([cfg.DATA.DATASET, checkpoint_name])
     checkpoint = os.path.join(cfg.MODEL.CHECKPOINT_DIR, checkpoint_name)
-
-    if cfg.NUM_GPUS > 1:
-        model = torch.nn.DataParallel(model, device_ids=cfg.GPU_IDS)
-        criterion = torch.nn.DataParallel(criterion, device_ids=cfg.GPU_IDS)
-    else:
-        model, criterion = model.to(device), criterion.to(device)
 
     logger.info("Reading list of training and validation videos...")
     with open(cfg.TRAIN.VID_LIST) as f:

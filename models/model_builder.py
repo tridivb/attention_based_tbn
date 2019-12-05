@@ -16,8 +16,11 @@ _MODEL_TYPES = {
     "bninception": TBNModel,
 }
 
+# Supported loss types
+_LOSS_TYPES = {"CrossEntropy": torch.nn.CrossEntropyLoss, "NLL": torch.nn.NLLLoss}
 
-def build_model(cfg, modality):
+
+def build_model(cfg, modality, device):
     """
     Builds the model.
     Args:
@@ -28,19 +31,24 @@ def build_model(cfg, modality):
         cfg.MODEL.ARCH in _MODEL_TYPES.keys()
     ), "Model type '{}' not supported".format(cfg.MODEL.ARCH)
     assert (
+        cfg.MODEL.LOSS_FN in _LOSS_TYPES.keys()
+    ), "Loss type '{}' not supported".format(cfg.MODEL.LOSS_FN)
+    assert (
         cfg.NUM_GPUS <= torch.cuda.device_count()
     ), "Cannot use more GPU devices than available"
 
     # Construct the model
-    model = TBNModel(cfg, modality)
-    # Determine the GPU used by the current process
-    cur_device = torch.cuda.current_device()
-    # Transfer the model to the current GPU device
-    model = model.cuda(device=cur_device)
+    model = _MODEL_TYPES[cfg.MODEL.ARCH](cfg, modality)
+
+    # Set loss type
+    criterion = _LOSS_TYPES[cfg.MODEL.LOSS_FN]()
+
     # Use multi-process data parallel model in the multi-gpu setting
-    if cfg.NUM_GPUS > 1:
-        # Make model replica operate on the current device
-        model = torch.nn.parallel.DistributedDataParallel(
-            module=model, device_ids=[cur_device], output_device=cur_device
-        )
-    return model
+    if cfg.NUM_GPUS > 1 and isinstance(device, torch.device("cuda")):
+        device_ids = cfg.GPU_IDS if cfg.GPU_IDS else None
+        model = torch.nn.DataParallel(model, device_ids=device_ids)
+        criterion = torch.nn.DataParallel(criterion, device_ids=device_ids)
+    else:
+        model, criterion = model.to(device), criterion.to(device)
+
+    return model, criterion

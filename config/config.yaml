@@ -9,7 +9,7 @@ DATA:
   USE_RGB: True
   USE_FLOW: True
   USE_AUDIO: True
-  OUT_DIR: "/media/remote_home/tridiv/attention_based_tbn/log"
+  OUT_DIR: "/media/data/tridiv/thesis/attention_based_tbn/"
   FRAME_FILE_EXT: "jpg"
   AUDIO_FILE_EXT: "wav"
   NUM_SEGMENTS: 3
@@ -35,14 +35,15 @@ MODEL:
   AGG_TYPE: "avg"
   FUSION_DROPOUT: 0.5
   USE_SOFTMAX: False
+  LOSS_FN: "CrossEntropy"
   CHECKPOINT_DIR: "/media/remote_home/tridiv/attention_based_tbn/weights"
 # Train Parameters
 TRAIN:
   TRAIN_ENABLE: True
-  VID_LIST: "./data/train_split_mini.txt"
+  VID_LIST: "./data/train_split.txt"
   OPTIM: "sgd"
   BATCH_SIZE: 22
-  EPOCHS: 2
+  EPOCHS: 80
   LR: 1e-2
   MOMENTUM: 0.9
   WEIGHT_DECAY: 0
@@ -54,7 +55,7 @@ TRAIN:
   PRE_TRAINED: ""
 # Validation Parameters
 VAL:
-  VID_LIST: "./data/val_split_mini.txt"
+  VID_LIST: "./data/val_split.txt"
   BATCH_SIZE: 48
   PRE_TRAINED: ""
   TOPK: [1, 5]
@@ -71,7 +72,6 @@ TEST:
   RESULTS_FILE: "unseen.json"
   PRE_TRAINED: ""
 # Misc
-LOG_DIR: "/media/remote_home/tridiv/attention_based_tbn/log"
 NUM_WORKERS: 8 
 NUM_GPUS: 1
 GPU_IDS: [0, 1]

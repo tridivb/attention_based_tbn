@@ -87,7 +87,7 @@ def run_tester(cfg, logger, modality):
     cfg.MODEL.USE_SOFTMAX = True
 
     logger.info("Initializing model...")
-    model = build_model(cfg, modality)
+    model, criterion = build_model(cfg, modality, device)
     logger.info("Model initialized.")
     logger.info("----------------------------------------------------------")
 
@@ -105,14 +105,6 @@ def run_tester(cfg, logger, modality):
     model.load_state_dict(data_dict["model"])
     logger.info("Done.")
     logger.info("----------------------------------------------------------")
-
-    criterion = torch.nn.CrossEntropyLoss()
-
-    if cfg.NUM_GPUS > 1:
-        model = torch.nn.DataParallel(model, device_ids=cfg.GPU_IDS)
-        criterion = torch.nn.DataParallel(criterion, device_ids=cfg.GPU_IDS)
-    else:
-        model, criterion = model.to(device), criterion.to(device)
 
     logger.info("Reading list of test videos...")
     if cfg.TEST.VID_LIST:

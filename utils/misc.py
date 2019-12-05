@@ -3,6 +3,19 @@ import json
 import numpy as np
 
 
+def get_modality(cfg):
+    modality = []
+
+    if cfg.DATA.USE_RGB:
+        modality.append("RGB")
+    if cfg.DATA.USE_FLOW:
+        modality.append("Flow")
+    if cfg.DATA.USE_AUDIO:
+        modality.append("Audio")
+
+    return modality
+
+
 def get_time_diff(start_time, end_time):
     hours = int((end_time - start_time) / 3600)
     minutes = int((end_time - start_time) / 60) - (hours * 60)
