@@ -9,7 +9,6 @@ import torchvision
 import pandas as pd
 from tqdm import tqdm
 from torch.utils.data.dataloader import DataLoader
-from tensorboardX import SummaryWriter
 
 from models.model_builder import build_model
 from dataset.dataset import Video_Dataset
@@ -51,7 +50,7 @@ def test(
 
             out = model(data)
 
-            if isinstance(target, torch.Tensor) and target.unique().item() != -1:
+            if isinstance(target, dict):
                 loss = model.get_loss(criterion, target, out)
                 test_loss += loss.item()
                 for cls in test_acc.keys():
@@ -102,7 +101,10 @@ def run_tester(cfg, logger, modality):
 
     logger.info("Loading pre-trained weights {}...".format(pre_trained))
     data_dict = torch.load(pre_trained, map_location="cpu")
-    model.load_state_dict(data_dict["model"])
+    if cfg.NUM_GPUS > 1:
+        model.module.load_state_dict(data_dict["model"])
+    else:
+        model.load_state_dict(data_dict["model"])
     logger.info("Done.")
     logger.info("----------------------------------------------------------")
 
@@ -111,10 +113,10 @@ def run_tester(cfg, logger, modality):
         with open(cfg.TEST.VID_LIST) as f:
             test_list = [x.strip() for x in f.readlines() if len(x.strip()) > 0]
     else:
-        if cfg.DATA.TEST_TIMESTAMPS.endswith("csv"):
-            df = pd.read_csv(cfg.DATA.TEST_TIMESTAMPS)
-        elif cfg.DATA.TEST_TIMESTAMPS.endswith("pkl"):
-            df = pd.read_pickle(cfg.DATA.TEST_TIMESTAMPS)
+        if cfg.TEST.ANNOTATION_FILE.endswith("csv"):
+            df = pd.read_csv(cfg.TEST.ANNOTATION_FILE)
+        elif cfg.TEST.ANNOTATION_FILE.endswith("pkl"):
+            df = pd.read_pickle(cfg.TEST.ANNOTATION_FILE)
         test_list = df["video_id"].unique()
 
     logger.info("Done.")
@@ -147,7 +149,12 @@ def run_tester(cfg, logger, modality):
 
     logger.info("Creating the dataset...")
     test_dataset = Video_Dataset(
-        cfg, test_list, modality, transform=test_transforms, mode="test"
+        cfg,
+        test_list,
+        cfg.TEST.ANNOTATION_FILE,
+        modality,
+        transform=test_transforms,
+        mode="test",
     )
 
     test_loader = DataLoader(

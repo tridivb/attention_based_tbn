@@ -19,6 +19,7 @@ class Video_Dataset(Dataset):
         self,
         cfg,
         vid_list: list,
+        annotation_file: str,
         modality: list = ["RGB"],
         transform=None,
         mode: str = "train",
@@ -40,11 +41,6 @@ class Video_Dataset(Dataset):
 
         self.transform = transform
 
-        if self.mode in ["train", "val"]:
-            annotation_file = cfg.DATA.ANNOTATION_FILE
-        elif self.mode == "test":
-            annotation_file = cfg.DATA.TEST_TIMESTAMPS
-
         self.frame_len = {}
         for m in self.modality:
             if m == "Flow":
@@ -52,14 +48,11 @@ class Video_Dataset(Dataset):
             else:
                 self.frame_len[m] = 1
 
-        if annotation_file:
-            if annotation_file.endswith("csv"):
-                self.annotations = pd.read_csv(annotation_file)
-            elif annotation_file.endswith("pkl"):
-                self.annotations = pd.read_pickle(annotation_file)
-            self.annotations = self.annotations.query("video_id in @vid_list")
-        else:
-            self.annotations = None
+        if annotation_file.endswith("csv"):
+            self.annotations = pd.read_csv(annotation_file)
+        elif annotation_file.endswith("pkl"):
+            self.annotations = pd.read_pickle(annotation_file)
+        self.annotations = self.annotations.query("video_id in @vid_list")
 
     def __len__(self) -> int:
         return self.annotations.shape[0]
@@ -102,7 +95,9 @@ class Video_Dataset(Dataset):
             return data, target, vid_record.action_id
 
     def _get_offsets(self, vid_record, modality):
-        seg_len = (vid_record.num_frames[modality] - self.frame_len[modality] + 1) // self.num_segments
+        seg_len = (
+            vid_record.num_frames[modality] - self.frame_len[modality] + 1
+        ) // self.num_segments
         if self.mode == "train" and seg_len > 0:
             offsets = np.random.randint(seg_len, size=self.num_segments)
             indices = (

@@ -44,11 +44,11 @@ def build_model(cfg, modality, device):
     criterion = _LOSS_TYPES[cfg.MODEL.LOSS_FN]()
 
     # Use multi-process data parallel model in the multi-gpu setting
-    if cfg.NUM_GPUS > 1 and isinstance(device, torch.device("cuda")):
-        device_ids = cfg.GPU_IDS if cfg.GPU_IDS else None
+    if cfg.NUM_GPUS > 1 and device.type == "cuda":
+        device_ids = cfg.GPU_IDS if len(cfg.GPU_IDS) > 0 else None
         model = torch.nn.DataParallel(model, device_ids=device_ids)
-        criterion = torch.nn.DataParallel(criterion, device_ids=device_ids)
-    else:
-        model, criterion = model.to(device), criterion.to(device)
+        # criterion = torch.nn.DataParallel(criterion, device_ids=device_ids)
+
+    model, criterion = model.to(device), criterion.to(device)
 
     return model, criterion

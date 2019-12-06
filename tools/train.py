@@ -8,7 +8,6 @@ import torch
 import torch.optim as optim
 import torchvision
 from torch.utils.data.dataloader import DataLoader
-from tensorboardX import SummaryWriter
 
 from models.model_builder import build_model
 from dataset.dataset import Video_Dataset
@@ -133,8 +132,11 @@ def run_trainer(cfg, logger, modality, writer):
 
     if cfg.TRAIN.PRE_TRAINED:
         logger.info("Loading pre-trained weights...")
-        data_dict = torch.load(cfg.TRAIN.PRE_TRAINED, map_location="cpu")
-        model.load_state_dict(data_dict["model"])
+        data_dict = torch.load(cfg.TRAIN.PRE_TRAINED)
+        if cfg.NUM_GPUS > 1:
+            model.module.load_state_dict(data_dict["model"])
+        else:
+            model.load_state_dict(data_dict["model"])
         optimizer.load_state_dict(data_dict["optimizer"])
         start_epoch = data_dict["epoch"] + 1
         logger.info(
@@ -212,6 +214,7 @@ def run_trainer(cfg, logger, modality, writer):
     train_dataset = Video_Dataset(
         cfg,
         train_list,
+        cfg.TRAIN.ANNOTATION_FILE,
         modality,
         transform=train_transforms,
         mode="train",
@@ -221,6 +224,7 @@ def run_trainer(cfg, logger, modality, writer):
     val_dataset = Video_Dataset(
         cfg,
         val_list,
+        cfg.TRAIN.ANNOTATION_FILE,
         modality,
         transform=val_transforms,
         mode="val",
@@ -260,9 +264,14 @@ def run_trainer(cfg, logger, modality, writer):
 
         logger.info("Validation in progress...")
 
-        val_loss, val_acc, confusion_matrix, precision, recall = validate(
-            cfg, model, val_loader, criterion, modality, logger, device
-        )
+        if cfg.NUM_GPUS > 1:
+            val_loss, val_acc, confusion_matrix, precision, recall = validate(
+                cfg, model.module, val_loader, criterion, modality, logger, device
+            )
+        else:
+            val_loss, val_acc, confusion_matrix, precision, recall = validate(
+                cfg, model, val_loader, criterion, modality, logger, device
+            )
 
         if val_loss < min_val_loss:
             save_checkpoint(

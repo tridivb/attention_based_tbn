@@ -1,10 +1,10 @@
-argparse
 librosa
 numpy
 omegaconf
+opencv-python
 pandas
 pretrainedmodels
+scipy
 torch
 torchvision
 tensorboardX
-opencv-python

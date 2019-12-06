@@ -1,7 +1,6 @@
 # Dataset Parameters
 DATA:
   DATA_DIR: "/media/data/tridiv/epic"
-  ANNOTATION_FILE: "/media/data/tridiv/epic_kitchens/annotations/EPIC_train_action_labels.csv"
   FRAME_DIR_PREFIX: "symlinks"
   READ_AUDIO_PICKLE: True
   AUDIO_DIR_PREFIX: "audio_pickle"
@@ -24,7 +23,6 @@ DATA:
   TRAIN_CROP_SIZE: 224
   TEST_SCALE_SIZE: 256
   TEST_CROP_SIZE: 256
-  TEST_TIMESTAMPS: "/media/data/tridiv/epic_kitchens/annotations/EPIC_test_s2_timestamps.csv"
 # Model Parameters
 MODEL:
   ARCH: "bninception"
@@ -40,6 +38,7 @@ MODEL:
 # Train Parameters
 TRAIN:
   TRAIN_ENABLE: True
+  ANNOTATION_FILE: "/media/data/tridiv/epic_kitchens/annotations/EPIC_train_action_labels.csv"
   VID_LIST: "./data/train_split.txt"
   OPTIM: "sgd"
   BATCH_SIZE: 22
@@ -52,7 +51,7 @@ TRAIN:
   FREEZE_BASE: False
   FREEZE_FUSION: False
   NUM_SEGMENTS: 3
-  PRE_TRAINED: ""
+  PRE_TRAINED: "/media/remote_home/tridiv/attention_based_tbn/weights/epic_tbn_bninception_RGB_Flow_Audio.pth"
 # Validation Parameters
 VAL:
   VID_LIST: "./data/val_split.txt"
@@ -63,15 +62,17 @@ VAL:
   # Test Parameters
 TEST:
   TEST_ENABLE: False
-  VID_LIST: ""
+  # ANNOTATION_FILE: "/media/data/tridiv/epic_kitchens/annotations/EPIC_test_s2_timestamps.csv"
+  ANNOTATION_FILE: "/media/data/tridiv/epic_kitchens/annotations/EPIC_train_action_labels.csv"
+  VID_LIST: "./data/val_split.txt"
   BATCH_SIZE: 64
-  PRE_TRAINED: ""
+  PRE_TRAINED: "/media/remote_home/tridiv/attention_based_tbn/weights/epic_tbn_bninception_RGB_Flow_Audio.pth"
   TOPK: [1, 5]
   NUM_SEGMENTS: 25
-  SAVE_RESULTS:  True
+  SAVE_RESULTS:  False
   RESULTS_FILE: "unseen.json"
   PRE_TRAINED: ""
 # Misc
 NUM_WORKERS: 8 
 NUM_GPUS: 1
-GPU_IDS: [0, 1]
+GPU_IDS: []
