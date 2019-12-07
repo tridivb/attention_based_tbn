@@ -139,6 +139,9 @@ def run_trainer(cfg, logger, modality, writer):
             model.load_state_dict(data_dict["model"])
         optimizer.load_state_dict(data_dict["optimizer"])
         start_epoch = data_dict["epoch"] + 1
+        train_loss_hist = data_dict["train_loss"]
+        val_loss_hist = data_dict["validation_loss"]
+        val_acc_hist = data_dict["validation_accuracy"]
         logger.info(
             "Model will continue training from epoch no {}".format(start_epoch + 1)
         )
@@ -147,6 +150,9 @@ def run_trainer(cfg, logger, modality, writer):
 
     else:
         start_epoch = 0
+        train_loss_hist = []
+        val_loss_hist = []
+        val_acc_hist = {k: [] for k in cfg.MODEL.NUM_CLASSES.keys()}
 
     checkpoint_name = "tbn_{}_{}.pth".format(cfg.MODEL.ARCH, "_".join(modality))
     if cfg.DATA.DATASET:
@@ -273,10 +279,23 @@ def run_trainer(cfg, logger, modality, writer):
                 cfg, model, val_loader, criterion, modality, logger, device
             )
 
+        train_loss_hist.append(train_loss)
+        val_loss_hist.append(val_loss)
+        for k in val_acc_hist.keys():
+            val_acc_hist[k].append(val_acc[k])
+
         if val_loss < min_val_loss:
             save_checkpoint(
-                model, optimizer, epoch, confusion_matrix, filename=checkpoint
+                model,
+                optimizer,
+                epoch,
+                train_loss_hist,
+                val_loss_hist,
+                val_acc_hist,
+                confusion_matrix,
+                filename=checkpoint,
             )
+            min_val_loss = val_loss
 
         hours, minutes, seconds = get_time_diff(epoch_start_time, time.time())
 

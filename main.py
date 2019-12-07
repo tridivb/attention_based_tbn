@@ -27,6 +27,10 @@ def main(args):
 
     cfg = OmegaConf.load(args.cfg)
 
+    if cfg.DATA.MANUAL_SEED:
+        np.random.seed(cfg.DATA.MANUAL_SEED)
+        torch.manual_seed(cfg.DATA.MANUAL_SEED)
+
     modality = get_modality(cfg)
 
     logger, writer = setup_log(cfg, modality)

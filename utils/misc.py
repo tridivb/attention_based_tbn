@@ -24,10 +24,21 @@ def get_time_diff(start_time, end_time):
 
 
 def save_checkpoint(
-    model, optimizer, epoch, confusion_matrix, scheduler=None, filename="checkpoint.pth"
+    model,
+    optimizer,
+    epoch,
+    train_loss_hist,
+    val_loss_hist,
+    val_acc_hist,
+    confusion_matrix,
+    scheduler=None,
+    filename="checkpoint.pth",
 ):
     data = {
         "epoch": epoch,
+        "train_loss": train_loss_hist,
+        "validation_loss": val_loss_hist,
+        "validation_accuracy": val_acc_hist,
         "model": model.state_dict(),
         "optimizer": optimizer.state_dict(),
     }

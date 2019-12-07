@@ -11,7 +11,6 @@ DATA:
   OUT_DIR: "/media/data/tridiv/thesis/attention_based_tbn/"
   FRAME_FILE_EXT: "jpg"
   AUDIO_FILE_EXT: "wav"
-  NUM_SEGMENTS: 3
   FLOW_WIN_LENGTH: 5
   SAMPLING_RATE: 24000
   AUDIO_LENGTH: 1.28
@@ -23,6 +22,7 @@ DATA:
   TRAIN_CROP_SIZE: 224
   TEST_SCALE_SIZE: 256
   TEST_CROP_SIZE: 256
+  MANUAL_SEED: 0
 # Model Parameters
 MODEL:
   ARCH: "bninception"
@@ -32,7 +32,7 @@ MODEL:
   }
   AGG_TYPE: "avg"
   FUSION_DROPOUT: 0.5
-  USE_SOFTMAX: False
+  USE_SOFTMAX: True
   LOSS_FN: "CrossEntropy"
   CHECKPOINT_DIR: "/media/remote_home/tridiv/attention_based_tbn/weights"
 # Train Parameters
@@ -51,14 +51,14 @@ TRAIN:
   FREEZE_BASE: False
   FREEZE_FUSION: False
   NUM_SEGMENTS: 3
-  PRE_TRAINED: "/media/remote_home/tridiv/attention_based_tbn/weights/epic_tbn_bninception_RGB_Flow_Audio.pth"
+  PRE_TRAINED: ""
 # Validation Parameters
 VAL:
   VID_LIST: "./data/val_split.txt"
   BATCH_SIZE: 48
   PRE_TRAINED: ""
   TOPK: [1, 5]
-  NUM_SEGMENTS: 3
+  NUM_SEGMENTS: 25
   # Test Parameters
 TEST:
   TEST_ENABLE: False

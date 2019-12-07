@@ -35,11 +35,18 @@ class Video_Dataset(Dataset):
 
         self.modality = modality
         self.mode = mode
-        self.num_segments = cfg.DATA.NUM_SEGMENTS
+
         self.sampling_rate = cfg.DATA.AUDIO_SAMPLING_RATE
         self.read_pickle = read_pickle
 
         self.transform = transform
+
+        if mode == "train":
+            self.num_segments = cfg.TRAIN.NUM_SEGMENTS
+        elif mode == "val":
+            self.num_segments = cfg.VAL.NUM_SEGMENTS
+        elif mode == "test":
+            self.num_segments = cfg.TEST.NUM_SEGMENTS
 
         self.frame_len = {}
         for m in self.modality:
