@@ -36,14 +36,12 @@ class TBNModel(nn.Module):
             )
             self.add_module(
                 "classifier",
-                Classifier(self.num_classes, 512, use_softmax=cfg.MODEL.USE_SOFTMAX),
+                Classifier(self.num_classes, 512),
             )
         else:
             self.add_module(
                 "classifier",
-                Classifier(
-                    self.num_classes, in_features, use_softmax=cfg.MODEL.USE_SOFTMAX
-                ),
+                Classifier(self.num_classes, in_features),
             )
 
     def _create_base_model(self, modality):
@@ -94,7 +92,7 @@ class TBNModel(nn.Module):
             features.extend([feature.view(b * n, -1)])
         features = torch.cat(features, dim=1)
 
-        if self.fusion:
+        if len(self.modality) > 1:
             features = self.fusion(features)
 
         out = self.classifier(features)
@@ -139,24 +137,18 @@ class Fusion(nn.Module):
 
 
 class Classifier(nn.Module):
-    def __init__(self, num_classes, in_features, use_softmax=False):
+    def __init__(self, num_classes, in_features):
         super(Classifier, self).__init__()
 
         self.num_classes = num_classes
-        self.use_softmax = use_softmax
 
         for cls in num_classes.keys():
             self.add_module(cls, nn.Linear(in_features, self.num_classes[cls]))
-            if self.use_softmax:
-                self.add_module("{}_softmax".format(cls), nn.Softmax(dim=1))
 
     def forward(self, input):
         out = {}
         for cls in self.num_classes:
             classifier = getattr(self, cls)
             out[cls] = classifier(input)
-            if self.use_softmax:
-                softmax = getattr(self, "{}_softmax".format(cls))
-                out[cls] = softmax(out[cls])
 
         return out

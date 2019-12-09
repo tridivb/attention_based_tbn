@@ -19,7 +19,7 @@ def get_modality(cfg):
 def get_time_diff(start_time, end_time):
     hours = int((end_time - start_time) / 3600)
     minutes = int((end_time - start_time) / 60) - (hours * 60)
-    seconds = int((end_time - start_time) % 60)
+    seconds = round((end_time - start_time) % 60)
     return (hours, minutes, seconds)
 
 
@@ -42,6 +42,7 @@ def save_checkpoint(
         "model": model.state_dict(),
         "optimizer": optimizer.state_dict(),
     }
+
     if confusion_matrix:
         data["conf_mat"] = confusion_matrix
 

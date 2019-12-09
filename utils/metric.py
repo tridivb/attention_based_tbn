@@ -1,5 +1,4 @@
 import torch
-import numpy as np
 
 
 class Metric(object):
@@ -7,10 +6,10 @@ class Metric(object):
         super(Metric, self).__init__()
         pass
 
-    def calculate_metrics(self, out, target, topk=[1,]):
+    def calculate_metrics(self, out, target, device, topk=[1,]):
         maxk = max(topk)
         batch_size = out.size(0)
-        conf_mat = np.zeros((out.size(1), out.size(1)))
+        conf_mat = torch.zeros((out.size(1), out.size(1)), device=device)
 
         _, preds = out.topk(maxk, 1, True, True)
         preds = preds.t()
@@ -34,9 +33,9 @@ class Metric(object):
         recall = 0
 
         # tn = conf_mat[0, 0]
-        tp = np.trace(conf_mat[1:, 1:])
-        fn = conf_mat[1:, 0].sum()
-        fp = conf_mat[1:, 1:].sum() - tp
+        tp = conf_mat[1:, 1:].diag().sum().item()
+        fn = conf_mat[1:, 0].sum().item()
+        fp = conf_mat[1:, 1:].sum().item() - tp
 
         if tp + fp > 0:
             precision = 100 * tp / (tp + fp)

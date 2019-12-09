@@ -37,6 +37,7 @@ def main(args):
 
     logger.info("Initializing the pipeline...")
     logger.info(cfg.pretty())
+    logger.info("Modality: {}".format(modality))
     logger.info("----------------------------------------------------------")
 
     try:

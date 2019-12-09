@@ -70,7 +70,7 @@ def validate(
     confusion_matrix = {}
     for cls, no_cls in cfg.MODEL.NUM_CLASSES.items():
         val_acc[cls] = [0] * (len(cfg.VAL.TOPK))
-        confusion_matrix[cls] = np.zeros((no_cls, no_cls))
+        confusion_matrix[cls] = torch.zeros((no_cls, no_cls), device=device)
         precision[cls] = 0
         recall[cls] = 0
 
@@ -84,7 +84,7 @@ def validate(
             val_loss += loss.item()
             for cls in val_acc.keys():
                 acc, conf_mat, prec, rec = metric.calculate_metrics(
-                    out[cls], target[cls], topk=cfg.VAL.TOPK
+                    out[cls], target[cls], device, topk=cfg.VAL.TOPK
                 )
                 val_acc[cls] = [x + y for x, y in zip(val_acc[cls], acc)]
                 precision[cls] += prec
@@ -96,6 +96,9 @@ def validate(
         val_acc[cls] = [round(x / no_batches, 2) for x in val_acc[cls]]
         precision[cls] = round(precision[cls] / no_batches, 2)
         recall[cls] = round(recall[cls] / no_batches, 2)
+        if device.type == "cuda":
+            confusion_matrix[cls] = confusion_matrix[cls].cpu()
+        confusion_matrix[cls] = confusion_matrix[cls].numpy()
 
     return val_loss, val_acc, confusion_matrix, precision, recall
 
@@ -138,6 +141,8 @@ def run_trainer(cfg, logger, modality, writer):
         else:
             model.load_state_dict(data_dict["model"])
         optimizer.load_state_dict(data_dict["optimizer"])
+        # if lr_scheduler and "scheduler":
+        #     lr_scheduler.load_state_dict(data_dict["scheduler"])
         start_epoch = data_dict["epoch"] + 1
         train_loss_hist = data_dict["train_loss"]
         val_loss_hist = data_dict["validation_loss"]
@@ -265,9 +270,6 @@ def run_trainer(cfg, logger, modality, writer):
             cfg, model, train_loader, optimizer, criterion, modality, logger, device
         )
 
-        if lr_scheduler:
-            lr_scheduler.step()
-
         logger.info("Validation in progress...")
 
         if cfg.NUM_GPUS > 1:
@@ -284,6 +286,9 @@ def run_trainer(cfg, logger, modality, writer):
         for k in val_acc_hist.keys():
             val_acc_hist[k].append(val_acc[k])
 
+        if lr_scheduler:
+            lr_scheduler.step()
+
         if val_loss < min_val_loss:
             save_checkpoint(
                 model,
@@ -293,6 +298,7 @@ def run_trainer(cfg, logger, modality, writer):
                 val_loss_hist,
                 val_acc_hist,
                 confusion_matrix,
+                scheduler=lr_scheduler,
                 filename=checkpoint,
             )
             min_val_loss = val_loss

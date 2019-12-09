@@ -34,7 +34,7 @@ def test(
     results["action_id"] = []
     for cls, no_cls in cfg.MODEL.NUM_CLASSES.items():
         test_acc[cls] = [0] * (len(cfg.VAL.TOPK))
-        confusion_matrix[cls] = np.zeros((no_cls, no_cls))
+        confusion_matrix[cls] = torch.zeros((no_cls, no_cls), device=device)
         precision[cls] = 0
         recall[cls] = 0
         results[cls] = []
@@ -55,7 +55,7 @@ def test(
                 test_loss += loss.item()
                 for cls in test_acc.keys():
                     acc, conf_mat, prec, rec = metric.calculate_metrics(
-                        out[cls], target[cls], topk=cfg.VAL.TOPK
+                        out[cls], target[cls], device, topk=cfg.VAL.TOPK
                     )
                     test_acc[cls] = [x + y for x, y in zip(test_acc[cls], acc)]
                     precision[cls] += prec
@@ -74,6 +74,9 @@ def test(
             test_acc[cls] = [round(x / no_batches, 2) for x in test_acc[cls]]
             precision[cls] = round(precision[cls] / no_batches, 2)
             recall[cls] = round(recall[cls] / no_batches, 2)
+            if device.type == "cuda":
+                confusion_matrix[cls] = confusion_matrix[cls].cpu()
+            confusion_matrix[cls] = confusion_matrix[cls].numpy()
         return test_loss, test_acc, confusion_matrix, precision, recall, results
     else:
         return results
