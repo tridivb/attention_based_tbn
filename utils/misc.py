@@ -69,9 +69,10 @@ def save_scores(scores, file_name):
         a_id = str(scores["action_id"][idx])
         results[a_id] = {}
         for cls in scores.keys():
+            score = torch.nn.functional.softmax(scores[cls], dim=1)
             if cls != "action_id":
                 results[a_id][cls] = {
-                    str(id): score.item() for id, score in enumerate(scores[cls][idx])
+                    str(id): s.item() for id, s in enumerate(score)
                 }
 
     out_result["results"] = results

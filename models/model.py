@@ -28,7 +28,7 @@ class TBNModel(nn.Module):
             self.add_module("Base_{}".format(m), self._create_base_model(m))
             in_features += getattr(self, "Base_{}".format(m)).feature_size
             if cfg.MODEL.FREEZE_BASE:
-                self._tune_base_model(modality, requires_grad=False)
+                self._freeze_base_model(modality, freeze_mode=cfg.MODEL.FREEZE_MODE)
 
         if len(self.modality) > 1:
             self.add_module(
@@ -67,9 +67,15 @@ class TBNModel(nn.Module):
 
         return base_model
 
-    def _tune_base_model(self, modality, requires_grad=False):
-        for param in getattr(self, modality):
-            param.requires_grad = requires_grad
+    def _freeze_base_model(self, modality, freeze_mode):
+        if freeze_mode == "all":
+            for param in getattr(self, modality).parameters():
+                param.requires_grad = False
+        elif freeze_mode == "partialbn":
+            for mod_no, mod in enumerate(getattr(self, modality).modules()):
+                if isinstance(mod, torch.nn.BatchNorm2d) and mod_no > 2:
+                    mod.weight.requires_grad(False)
+                    mod.bias.requires_grad(False)
 
     def _aggregate_scores(self, scores, new_shape=(1, -1)):
         assert isinstance(scores, (dict, torch.Tensor))

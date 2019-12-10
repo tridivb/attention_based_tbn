@@ -23,16 +23,26 @@ class Metric(object):
             correct_k = correct[:k].view(-1).to(torch.float32).sum(0)
             acc.append(float(correct_k.mul_(100.0 / batch_size)))
 
-        precision, recall = self.get_precision_recall(conf_mat)
+        # precision, recall = self.get_precision_recall(conf_mat)
 
-        return acc, conf_mat, precision, recall
+        return acc, conf_mat
+
+    @staticmethod
+    def get_multi_class_accuracy(out, target):
+        o = []
+        t = []
+        for key in out.keys():
+            o.extend([out[key]])
+            t.extend([target[key]])
+
+        o = torch.cat(o, dim=1)
+        t = torch.cat(t, dim=1)
 
     @staticmethod
     def get_precision_recall(conf_mat):
         precision = 0
         recall = 0
 
-        # tn = conf_mat[0, 0]
         tp = conf_mat[1:, 1:].diag().sum().item()
         fn = conf_mat[1:, 0].sum().item()
         fp = conf_mat[1:, 1:].sum().item() - tp

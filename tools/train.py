@@ -42,6 +42,18 @@ def train(
         loss = model.get_loss(criterion, target, out)
         train_loss += loss.item()
         loss.backward()
+
+        if cfg.TRAIN.CLIP_GRAD:
+            total_norm = torch.nn.utils.clip_grad_norm_(
+                model.parameters(), cfg.TRAIN.CLIP_GRAD
+            )
+            if total_norm > cfg.TRAIN.CLIP_GRAD:
+                logger.info(
+                    "Clipping gradient: {} with coef {}".format(
+                        total_norm, cfg.TRAIN.CLIP_GRAD / total_norm
+                    )
+                )
+
         optimizer.step()
 
         if batch_no == 0 or (batch_no + 1) % batch_interval == 0:
@@ -65,14 +77,14 @@ def validate(
     model.eval()
     val_loss = 0
     val_acc = {}
-    precision = {}
-    recall = {}
+    # precision = {}
+    # recall = {}
     confusion_matrix = {}
     for cls, no_cls in cfg.MODEL.NUM_CLASSES.items():
         val_acc[cls] = [0] * (len(cfg.VAL.TOPK))
         confusion_matrix[cls] = torch.zeros((no_cls, no_cls), device=device)
-        precision[cls] = 0
-        recall[cls] = 0
+        # precision[cls] = 0
+        # recall[cls] = 0
 
     with torch.no_grad():
         for data, target, _ in data_loader:
@@ -83,24 +95,28 @@ def validate(
             loss = model.get_loss(criterion, target, out)
             val_loss += loss.item()
             for cls in val_acc.keys():
-                acc, conf_mat, prec, rec = metric.calculate_metrics(
+                acc, conf_mat = metric.calculate_metrics(
                     out[cls], target[cls], device, topk=cfg.VAL.TOPK
                 )
                 val_acc[cls] = [x + y for x, y in zip(val_acc[cls], acc)]
-                precision[cls] += prec
-                recall[cls] += rec
+                # precision[cls] += prec
+                # recall[cls] += rec
                 confusion_matrix[cls] += conf_mat
 
     val_loss /= no_batches
     for cls in val_acc.keys():
         val_acc[cls] = [round(x / no_batches, 2) for x in val_acc[cls]]
-        precision[cls] = round(precision[cls] / no_batches, 2)
-        recall[cls] = round(recall[cls] / no_batches, 2)
+        # precision[cls] = round(precision[cls] / no_batches, 2)
+        # recall[cls] = round(recall[cls] / no_batches, 2)
         if device.type == "cuda":
             confusion_matrix[cls] = confusion_matrix[cls].cpu()
         confusion_matrix[cls] = confusion_matrix[cls].numpy()
 
-    return val_loss, val_acc, confusion_matrix, precision, recall
+    return (
+        val_loss,
+        val_acc,
+        confusion_matrix,
+    )
 
 
 def run_trainer(cfg, logger, modality, writer):
@@ -141,8 +157,8 @@ def run_trainer(cfg, logger, modality, writer):
         else:
             model.load_state_dict(data_dict["model"])
         optimizer.load_state_dict(data_dict["optimizer"])
-        # if lr_scheduler and "scheduler":
-        #     lr_scheduler.load_state_dict(data_dict["scheduler"])
+        if lr_scheduler and "scheduler" in data_dict.keys():
+            lr_scheduler.load_state_dict(data_dict["scheduler"])
         start_epoch = data_dict["epoch"] + 1
         train_loss_hist = data_dict["train_loss"]
         val_loss_hist = data_dict["validation_loss"]
@@ -270,37 +286,47 @@ def run_trainer(cfg, logger, modality, writer):
             cfg, model, train_loader, optimizer, criterion, modality, logger, device
         )
 
+        train_loss_hist.append(train_loss)
         logger.info("Validation in progress...")
 
-        if cfg.NUM_GPUS > 1:
-            val_loss, val_acc, confusion_matrix, precision, recall = validate(
-                cfg, model.module, val_loader, criterion, modality, logger, device
-            )
-        else:
-            val_loss, val_acc, confusion_matrix, precision, recall = validate(
+        if cfg.VAL.VAL_ENABLE:
+            val_loss, val_acc, confusion_matrix = validate(
                 cfg, model, val_loader, criterion, modality, logger, device
             )
-
-        train_loss_hist.append(train_loss)
-        val_loss_hist.append(val_loss)
-        for k in val_acc_hist.keys():
-            val_acc_hist[k].append(val_acc[k])
+        else:
+            val_loss = 0        
+            val_loss_hist.append(val_loss)
+            for k in val_acc_hist.keys():
+                val_acc_hist[k].append(val_acc[k])
 
         if lr_scheduler:
             lr_scheduler.step()
 
-        if val_loss < min_val_loss:
-            save_checkpoint(
-                model,
-                optimizer,
-                epoch,
-                train_loss_hist,
-                val_loss_hist,
-                val_acc_hist,
-                confusion_matrix,
-                scheduler=lr_scheduler,
-                filename=checkpoint,
-            )
+        if val_loss < min_val_loss or not cfg.VAL.VAL_ENABLE:
+            if cfg.NUM_GPUS > 1:
+                save_checkpoint(
+                    model.module,
+                    optimizer,
+                    epoch,
+                    train_loss_hist,
+                    val_loss_hist,
+                    val_acc_hist,
+                    confusion_matrix,
+                    scheduler=lr_scheduler,
+                    filename=checkpoint,
+                )
+            else:
+                save_checkpoint(
+                    model,
+                    optimizer,
+                    epoch,
+                    train_loss_hist,
+                    val_loss_hist,
+                    val_acc_hist,
+                    confusion_matrix,
+                    scheduler=lr_scheduler,
+                    filename=checkpoint,
+                )
             min_val_loss = val_loss
 
         hours, minutes, seconds = get_time_diff(epoch_start_time, time.time())
@@ -320,14 +346,12 @@ def run_trainer(cfg, logger, modality, writer):
         logger.info("----------------------------------------------------------")
         logger.info("Accuracy Top {}:".format(cfg.VAL.TOPK))
         logger.info(json.dumps(val_acc, indent=2))
-        logger.info("Precision: {}".format(json.dumps(precision, indent=2)))
-        logger.info("Recall: {}".format(json.dumps(recall, indent=2)))
+        # logger.info("Precision: {}".format(json.dumps(precision, indent=2)))
+        # logger.info("Recall: {}".format(json.dumps(recall, indent=2)))
         logger.info("----------------------------------------------------------")
 
         plotter.plot_scalar(train_loss, epoch, "train/loss")
         plotter.plot_scalar(val_loss, epoch, "val/loss")
-        plotter.plot_dict(precision, epoch, "val/precision")
-        plotter.plot_dict(recall, epoch, "val/recall")
         plotter.plot_dict(val_acc, epoch, "val/accuracy/top")
 
     hours, minutes, seconds = get_time_diff(start_time, time.time())
