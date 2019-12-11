@@ -6,8 +6,8 @@ DATA:
   AUDIO_DIR_PREFIX: "audio_pickle"
   DATASET: "epic"
   USE_RGB: True
-  USE_FLOW: True
-  USE_AUDIO: True
+  USE_FLOW: False
+  USE_AUDIO: False
   OUT_DIR: "/media/data/tridiv/thesis/attention_based_tbn/"
   FRAME_FILE_EXT: "jpg"
   AUDIO_FILE_EXT: "wav"
@@ -26,53 +26,54 @@ DATA:
 # Model Parameters
 MODEL:
   ARCH: "bninception"
+  FREEZE_BASE: True
+  FREEZE_MODE: "partialbn"
   NUM_CLASSES: {
-    verb: 127,
+    verb: 125,
     noun: 352
   }
   AGG_TYPE: "avg"
   FUSION_DROPOUT: 0.5
   USE_SOFTMAX: True
   LOSS_FN: "CrossEntropy"
-  CHECKPOINT_DIR: "/media/remote_home/tridiv/attention_based_tbn/weights"
+  CHECKPOINT_DIR: "/media/data/tridiv/thesis/attention_based_tbn/weights"
 # Train Parameters
 TRAIN:
   TRAIN_ENABLE: True
   ANNOTATION_FILE: "/media/data/tridiv/epic_kitchens/annotations/EPIC_train_action_labels.csv"
   VID_LIST: "./data/train_split.txt"
   OPTIM: "sgd"
-  BATCH_SIZE: 22
-  EPOCHS: 80
-  LR: 1e-2
+  BATCH_SIZE: 64
+  EPOCHS: 30
+  LR: 1e-3
   MOMENTUM: 0.9
   WEIGHT_DECAY: 0
-  LR_STEPS: [20, 40]
-  LR_DECAY: 1e-6
-  FREEZE_BASE: False
-  FREEZE_FUSION: False
+  LR_STEPS: [15]
+  LR_DECAY: 1e-1
+  CLIP_GRAD: 20
   NUM_SEGMENTS: 3
   PRE_TRAINED: ""
 # Validation Parameters
 VAL:
+  VAL_ENABLE: True
   VID_LIST: "./data/val_split.txt"
-  BATCH_SIZE: 48
+  BATCH_SIZE: 6 
   PRE_TRAINED: ""
   TOPK: [1, 5]
   NUM_SEGMENTS: 25
   # Test Parameters
 TEST:
-  TEST_ENABLE: False
+  TEST_ENABLE: False 
   # ANNOTATION_FILE: "/media/data/tridiv/epic_kitchens/annotations/EPIC_test_s2_timestamps.csv"
   ANNOTATION_FILE: "/media/data/tridiv/epic_kitchens/annotations/EPIC_train_action_labels.csv"
   VID_LIST: "./data/val_split.txt"
-  BATCH_SIZE: 64
-  PRE_TRAINED: "/media/remote_home/tridiv/attention_based_tbn/weights/epic_tbn_bninception_RGB_Flow_Audio.pth"
+  BATCH_SIZE: 6 
   TOPK: [1, 5]
   NUM_SEGMENTS: 25
   SAVE_RESULTS:  False
   RESULTS_FILE: "unseen.json"
-  PRE_TRAINED: ""
+  PRE_TRAINED: "/media/remote_home/tridiv/attention_based_tbn/weights/epic_tbn_bninception_RGB_Flow_Audio.pth"
 # Misc
-NUM_WORKERS: 8 
+NUM_WORKERS: 8
 NUM_GPUS: 1
 GPU_IDS: []

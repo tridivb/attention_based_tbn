@@ -143,6 +143,8 @@ class Video_Dataset(Dataset):
                 self.cfg.DATA.DATA_DIR, self.cfg.DATA.FRAME_DIR_PREFIX, vid_id
             )
             img = cv2.imread(os.path.join(rgb_path, rgb_file_name))
+            # Convert to rgb
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             return [img]
         elif modality == "Flow":
             flow_file_name = [

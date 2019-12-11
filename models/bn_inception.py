@@ -45,4 +45,6 @@ def bninception(in_channels, modality, pretrained="imagenet", model_dir=""):
 
     model.load_state_dict(data_dict)
 
+    delattr(model, "last_linear")
+
     return model
