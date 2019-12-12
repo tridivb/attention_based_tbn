@@ -6,7 +6,8 @@ import cv2
 import time
 import librosa as lr
 from parse import parse
-from joblib import Parallel, delayed
+from tqdm import tqdm
+from joblib import Parallel, delayed, parallel_backend
 
 
 def parse_args():
@@ -14,7 +15,11 @@ def parse_args():
         description="dump epic kitchens images into hdf5 databases"
     )
     parser.add_argument(
-        "--mode", choices=["rgb", "flow", "audio"], help="rgb/flow mode", default="rgb", type=str
+        "--mode",
+        choices=["rgb", "flow", "audio"],
+        help="rgb/flow mode",
+        default="rgb",
+        type=str,
     )
     parser.add_argument(
         "--lst-file",
@@ -81,11 +86,11 @@ def save_images_to_hdf5(
     file_format="frame_{:010d}.jpg",
     flow_win_len=5,
 ):
-    if args.mode == "rgb":
-        root_path = os.path.join(root_dir, "rgb")
+    if mode == "rgb":
+        root_dir = os.path.join(root_dir, "rgb")
         out_dir = os.path.join(out_dir, "rgb")
-    elif args.mode == "flow":
-        root_path = os.path.join(root_dir, "flow")
+    elif mode == "flow":
+        root_dir = os.path.join(root_dir, "flow")
         out_dir = os.path.join(out_dir, "flow")
 
     os.makedirs(out_dir, exist_ok=True)
@@ -122,12 +127,17 @@ def save_images_to_hdf5(
     n = len(all_files)
 
     h5_file = os.path.join(out_dir, "{}_{}.hdf5".format(vid_id, mode))
-    f = h5py.File(h5_file, "w")
-    dset = f.create_dataset(vid_id, shape=(n, h, w, c), dtype=h5py.h5t.STD_U8BE, compression="gzip")
-    for idx in range(n):
-        img = read_image(vid_path, all_files[idx], mode)        
-        dset[idx] = img
-    f.close()
+    with h5py.File(h5_file, "w") as f:
+        dset = f.create_dataset(
+            vid_id,
+            shape=(n, h, w, c),
+            dtype=h5py.h5t.STD_U8BE,
+            # compression="gzip",
+            chunks=True,
+        )
+        for idx in range(n):
+            img = read_image(vid_path, all_files[idx], mode)
+            dset[idx] = img
     print("Done. Frame data for {} saved to {}...".format(vid_id, h5_file))
 
 
@@ -137,7 +147,7 @@ def save_audio_to_hdf5(
     root_dir = os.path.join(root_dir, "audio")
     out_dir = os.path.join(out_dir, "audio")
     os.makedirs(out_dir, exist_ok=True)
-    
+
     vid_id = os.path.split(v)[1]
     aud_path = os.path.join(root_dir, vid_id)
     p_id = vid_id.split("_")[0]
@@ -148,7 +158,7 @@ def save_audio_to_hdf5(
         f = h5py.File(h5_file, "w")
 
     try:
-        sample, _ = lr.core.load(os.path.join(aud_path + "." + ext), sr=args.sr, mono=True)
+        sample, _ = lr.core.load(os.path.join(aud_path + "." + ext), sr=sr, mono=True)
     except Exception as e:
         raise Exception("Failed to read audio file {} with error {}".format(f, e))
     dset = f.create_dataset(
@@ -159,8 +169,6 @@ def save_audio_to_hdf5(
 
 
 def main(args):
-
-    out_dir = args.out_dir if args.out_dir else "./"
 
     with open(args.lst_file) as f:
         vid_list = [x.strip() for x in f.readlines() if len(x.strip()) > 0]
@@ -179,23 +187,24 @@ def main(args):
                 args.out_dir,
                 ext=args.ext,
                 sr=args.sr,
-                file_format=args.file_format
+                file_format=args.file_format,
             )
             for v in vid_list
         )
     else:
-        Parallel(n_jobs=args.njobs)(
-            delayed(save_images_to_hdf5)(
-                v,
-                args.mode,
-                args.root_dir,
-                args.out_dir,
-                ext=args.ext,
-                file_format=args.file_format,
-                flow_win_len=args.flow_win_len,
+        with parallel_backend("threading", n_jobs=args.njobs):
+            results = Parallel(verbose=25)(
+                delayed(save_images_to_hdf5)(
+                    v,
+                    args.mode,
+                    args.root_dir,
+                    args.out_dir,
+                    ext=args.ext,
+                    file_format=args.file_format,
+                    flow_win_len=args.flow_win_len,
+                )
+                for v in vid_list
             )
-            for v in vid_list
-        )
 
     print("Done")
     print("----------------------------------------------------------")
