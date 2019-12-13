@@ -5,9 +5,11 @@ import numpy as np
 import cv2
 import time
 import librosa as lr
+from mpi4py import MPI
 from parse import parse
 from tqdm import tqdm
-from joblib import Parallel, delayed, parallel_backend
+from joblib import Parallel, delayed
+from utils.misc import get_time_diff
 
 
 def parse_args():
@@ -98,7 +100,6 @@ def save_images_to_hdf5(
     vid_path = os.path.join(root_dir, v)
     vid_id = os.path.split(v)[1]
 
-    print("Processing {}...".format(vid_id))
     if mode == "rgb":
         all_files = sorted(
             filter(lambda x: x.endswith(ext), os.listdir(vid_path)),
@@ -125,20 +126,25 @@ def save_images_to_hdf5(
 
     h, w, c = read_image(vid_path, all_files[0], mode).shape
     n = len(all_files)
+    cache_size = 1024 ** 3
+    chunk_size = (2500, h, w, c)
 
     h5_file = os.path.join(out_dir, "{}_{}.hdf5".format(vid_id, mode))
-    with h5py.File(h5_file, "w") as f:
+    with h5py.File(h5_file, "w", rdcc_nbytes=cache_size, driver='mpio', comm=MPI.COMM_WORLD) as f:
         dset = f.create_dataset(
             vid_id,
             shape=(n, h, w, c),
-            dtype=h5py.h5t.STD_U8BE,
-            # compression="gzip",
-            chunks=True,
+            dtype=np.uint8,
+            compression="gzip",
+            chunks=chunk_size,
+            compression_opts=4,
         )
         for idx in range(n):
             img = read_image(vid_path, all_files[idx], mode)
             dset[idx] = img
-    print("Done. Frame data for {} saved to {}...".format(vid_id, h5_file))
+    print("----------------------------------------------------------")
+    print("Frame data for {} saved to {}.".format(vid_id, h5_file))
+    print("----------------------------------------------------------")
 
 
 def save_audio_to_hdf5(
@@ -153,19 +159,29 @@ def save_audio_to_hdf5(
     p_id = vid_id.split("_")[0]
     h5_file = os.path.join(out_dir, "{}_{}.hdf5".format(p_id, mode))
     if os.path.exists(h5_file):
-        f = h5py.File(h5_file, "r+")
+        file_mode = "r+"
     else:
-        f = h5py.File(h5_file, "w")
+        file_mode = "w"
 
     try:
         sample, _ = lr.core.load(os.path.join(aud_path + "." + ext), sr=sr, mono=True)
     except Exception as e:
         raise Exception("Failed to read audio file {} with error {}".format(f, e))
-    dset = f.create_dataset(
-        vid_id, shape=sample.shape, dtype=h5py.h5t.STD_U8BE, data=sample
-    )
-    f.close()
-    print("Done. Audio data for {} saved to {}...".format(vid_id, h5_file))
+
+    chunk_size = (sample.shape[0] // 2,)
+    cache_size = chunk_size * 4
+
+    with h5py.File(h5_file, file_mode, rdcc_nbytes=cache_size) as f:
+        dset = f.create_dataset(
+            vid_id,
+            shape=sample.shape,
+            dtype=np.float32,
+            data=sample,
+            compression="gzip",
+            chunks=chunk_size,
+            compression_opts=4,
+        )
+    print("Done. Audio data for {} saved to {}.".format(vid_id, h5_file))
 
 
 def main(args):
@@ -192,23 +208,22 @@ def main(args):
             for v in vid_list
         )
     else:
-        with parallel_backend("threading", n_jobs=args.njobs):
-            results = Parallel(verbose=25)(
-                delayed(save_images_to_hdf5)(
-                    v,
-                    args.mode,
-                    args.root_dir,
-                    args.out_dir,
-                    ext=args.ext,
-                    file_format=args.file_format,
-                    flow_win_len=args.flow_win_len,
-                )
-                for v in vid_list
+        results = Parallel(n_jobs=args.njobs, verbose=25)(
+            delayed(save_images_to_hdf5)(
+                v,
+                args.mode,
+                args.root_dir,
+                args.out_dir,
+                ext=args.ext,
+                file_format=args.file_format,
+                flow_win_len=args.flow_win_len,
             )
+            for v in vid_list
+        )
 
     print("Done")
     print("----------------------------------------------------------")
-    print("Time taken: {:.3f} seconds".format(time.time() - start))
+    print("Time taken[HH:MM:SS]: {}".format(get_time_diff(start, time.time())))
 
 
 if __name__ == "__main__":
