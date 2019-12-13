@@ -160,6 +160,7 @@ def run_trainer(cfg, logger, modality, writer):
         if lr_scheduler and "scheduler" in data_dict.keys():
             lr_scheduler.load_state_dict(data_dict["scheduler"])
         start_epoch = data_dict["epoch"] + 1
+        epochs += start_epoch
         train_loss_hist = data_dict["train_loss"]
         val_loss_hist = data_dict["validation_loss"]
         val_acc_hist = data_dict["validation_accuracy"]

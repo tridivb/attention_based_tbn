@@ -73,7 +73,7 @@ class TBNModel(nn.Module):
             for param in getattr(self, "Base_{}".format(modality)).parameters():
                 param.requires_grad = False
         elif freeze_mode == "partialbn":
-            print("Freezing the batchnorms of Base Model except first layer.")
+            print("Freezing the batchnorms of Base Model {} except first layer.".format(modality))
             for mod_no, mod in enumerate(getattr(self, "Base_{}".format(modality)).children()):
                 if isinstance(mod, torch.nn.BatchNorm2d) and mod_no > 1:
                     mod.weight.requires_grad = False
