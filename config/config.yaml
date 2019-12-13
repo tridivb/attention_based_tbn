@@ -41,14 +41,14 @@ MODEL:
 TRAIN:
   TRAIN_ENABLE: True
   ANNOTATION_FILE: "/media/data/tridiv/epic_kitchens/annotations/EPIC_train_action_labels.csv"
-  VID_LIST: "./data/train_split.txt"
+  VID_LIST: "./data/train_split_seen.txt"
   OPTIM: "sgd"
   BATCH_SIZE: 64
-  EPOCHS: 30
+  EPOCHS: 50
   LR: 1e-3
   MOMENTUM: 0.9
   WEIGHT_DECAY: 0
-  LR_STEPS: [15]
+  LR_STEPS: [10, 30]
   LR_DECAY: 1e-1
   CLIP_GRAD: 20
   NUM_SEGMENTS: 3
@@ -56,7 +56,7 @@ TRAIN:
 # Validation Parameters
 VAL:
   VAL_ENABLE: True
-  VID_LIST: "./data/val_split.txt"
+  VID_LIST: "./data/val_split_seen.txt"
   BATCH_SIZE: 6 
   PRE_TRAINED: ""
   TOPK: [1, 5]
@@ -65,8 +65,7 @@ VAL:
 TEST:
   TEST_ENABLE: False 
   # ANNOTATION_FILE: "/media/data/tridiv/epic_kitchens/annotations/EPIC_test_s2_timestamps.csv"
-  ANNOTATION_FILE: "/media/data/tridiv/epic_kitchens/annotations/EPIC_train_action_labels.csv"
-  VID_LIST: "./data/val_split.txt"
+  VID_LIST: "./data/val_split_epic.txt"
   BATCH_SIZE: 6 
   TOPK: [1, 5]
   NUM_SEGMENTS: 25
