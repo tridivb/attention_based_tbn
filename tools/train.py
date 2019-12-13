@@ -295,7 +295,7 @@ def run_trainer(cfg, logger, modality, writer):
                 cfg, model, val_loader, criterion, modality, logger, device
             )
         else:
-            val_loss = 0        
+            val_loss = 0
             val_loss_hist.append(val_loss)
             for k in val_acc_hist.keys():
                 val_acc_hist[k].append(val_acc[k])
@@ -314,7 +314,7 @@ def run_trainer(cfg, logger, modality, writer):
                     val_acc_hist,
                     confusion_matrix,
                     scheduler=lr_scheduler,
-                    filename=checkpoint,
+                    filename=os.path.splitext(checkpoint)[0] + "_best.pth",
                 )
             else:
                 save_checkpoint(
@@ -326,9 +326,21 @@ def run_trainer(cfg, logger, modality, writer):
                     val_acc_hist,
                     confusion_matrix,
                     scheduler=lr_scheduler,
-                    filename=checkpoint,
+                    filename=os.path.splitext(checkpoint)[0] + "_best.pth",
                 )
             min_val_loss = val_loss
+
+        save_checkpoint(
+            model,
+            optimizer,
+            epoch,
+            train_loss_hist,
+            val_loss_hist,
+            val_acc_hist,
+            confusion_matrix,
+            scheduler=lr_scheduler,
+            filename=checkpoint,
+        )
 
         hours, minutes, seconds = get_time_diff(epoch_start_time, time.time())
 
