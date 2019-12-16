@@ -23,7 +23,6 @@ class Video_Dataset(Dataset):
         modality: list = ["RGB"],
         transform=None,
         mode: str = "train",
-        read_pickle=True,
     ):
         self.cfg = cfg
         self.root_dir = cfg.DATA.DATA_DIR
@@ -37,7 +36,7 @@ class Video_Dataset(Dataset):
         self.mode = mode
 
         self.sampling_rate = cfg.DATA.AUDIO_SAMPLING_RATE
-        self.read_pickle = read_pickle
+        self.read_pickle = cfg.DATA.READ_AUDIO_PICKLE
 
         self.transform = transform
 
@@ -105,19 +104,12 @@ class Video_Dataset(Dataset):
         seg_len = (
             vid_record.num_frames[modality] - self.frame_len[modality] + 1
         ) // self.num_segments
-        if self.mode == "train" and seg_len > 0:
-            offsets = np.random.randint(seg_len, size=self.num_segments)
-            indices = (
-                vid_record.start_frame[modality]
-                + np.arange(0, self.num_segments) * seg_len
-                + offsets
-            )
-        elif self.mode in ["test", "val"] and seg_len >= self.frame_len[modality]:
-            offsets = (
-                (seg_len - self.frame_len[modality] + 1)
-                // 2
-                * np.ones((self.num_segments))
-            )
+        if seg_len > 0:
+            if self.mode == "train":
+                offsets = np.random.randint(seg_len, size=self.num_segments)
+            else:
+                offsets = seg_len // 2
+            
             indices = (
                 vid_record.start_frame[modality]
                 + np.arange(0, self.num_segments) * seg_len
@@ -164,9 +156,10 @@ class Video_Dataset(Dataset):
     def _get_audio(self, vid_record, frame_idx, vid_id):
         min_len = int(self.cfg.DATA.AUDIO_LENGTH * self.cfg.DATA.SAMPLING_RATE)
 
-        start_frame = frame_idx - min_len // 2
-
-        start_frame = max(0, min(start_frame, vid_record.end_frame["Audio"] - min_len))
+        start_sec = round((frame_idx / self.cfg.DATA.VID_FPS) - (self.cfg.DATA.AUDIO_LENGTH / 2), 3)
+        if start_sec + self.cfg.DATA.AUDIO_LENGTH > round(vid_record.end_frame["Audio"] / self.cfg.DATA.VID_FPS, 3):
+            start_sec = round(vid_record.end_frame["Audio"] / self.cfg.DATA.VID_FPS, 3) - self.cfg.DATA.AUDIO_LENGTH
+        start_frame = int(max(0, start_sec * self.cfg.DATA.SAMPLING_RATE))
 
         if self.read_pickle:
             npy_file = os.path.join(
@@ -191,8 +184,6 @@ class Video_Dataset(Dataset):
                     aud_file,
                     sr=self.cfg.DATA.SAMPLING_RATE,
                     mono=True,
-                    # offset=start_sec,
-                    # duration=self.cfg.DATA.AUDIO_LENGTH,
                 )
             except Exception as e:
                 print(
@@ -201,7 +192,7 @@ class Video_Dataset(Dataset):
 
         if sample.shape[0] < min_len:
             sample = np.pad(sample, (0, min_len - sample.shape[0]), mode="constant")
-        if sample.shape[0] > min_len:
+        if sample.shape[0] >= min_len:
             sample = sample[start_frame : start_frame + min_len]
 
         spec = self._get_spectrogram(sample)

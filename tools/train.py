@@ -77,14 +77,10 @@ def validate(
     model.eval()
     val_loss = 0
     val_acc = {}
-    # precision = {}
-    # recall = {}
     confusion_matrix = {}
     for cls, no_cls in cfg.MODEL.NUM_CLASSES.items():
         val_acc[cls] = [0] * (len(cfg.VAL.TOPK))
         confusion_matrix[cls] = torch.zeros((no_cls, no_cls), device=device)
-        # precision[cls] = 0
-        # recall[cls] = 0
 
     with torch.no_grad():
         for data, target, _ in data_loader:
@@ -99,15 +95,11 @@ def validate(
                     out[cls], target[cls], device, topk=cfg.VAL.TOPK
                 )
                 val_acc[cls] = [x + y for x, y in zip(val_acc[cls], acc)]
-                # precision[cls] += prec
-                # recall[cls] += rec
                 confusion_matrix[cls] += conf_mat
 
     val_loss /= no_batches
     for cls in val_acc.keys():
         val_acc[cls] = [round(x / no_batches, 2) for x in val_acc[cls]]
-        # precision[cls] = round(precision[cls] / no_batches, 2)
-        # recall[cls] = round(recall[cls] / no_batches, 2)
         if device.type == "cuda":
             confusion_matrix[cls] = confusion_matrix[cls].cpu()
         confusion_matrix[cls] = confusion_matrix[cls].numpy()
@@ -246,7 +238,6 @@ def run_trainer(cfg, logger, modality, writer):
         modality,
         transform=train_transforms,
         mode="train",
-        read_pickle=cfg.DATA.READ_AUDIO_PICKLE,
     )
 
     val_dataset = Video_Dataset(
@@ -256,7 +247,6 @@ def run_trainer(cfg, logger, modality, writer):
         modality,
         transform=val_transforms,
         mode="val",
-        read_pickle=cfg.DATA.READ_AUDIO_PICKLE,
     )
 
     train_loader = DataLoader(
@@ -294,11 +284,11 @@ def run_trainer(cfg, logger, modality, writer):
             val_loss, val_acc, confusion_matrix = validate(
                 cfg, model, val_loader, criterion, modality, logger, device
             )
-        else:
-            val_loss = 0
             val_loss_hist.append(val_loss)
             for k in val_acc_hist.keys():
                 val_acc_hist[k].append(val_acc[k])
+        else:
+            val_loss = 0
 
         if lr_scheduler:
             lr_scheduler.step()
@@ -359,8 +349,6 @@ def run_trainer(cfg, logger, modality, writer):
         logger.info("----------------------------------------------------------")
         logger.info("Accuracy Top {}:".format(cfg.VAL.TOPK))
         logger.info(json.dumps(val_acc, indent=2))
-        # logger.info("Precision: {}".format(json.dumps(precision, indent=2)))
-        # logger.info("Recall: {}".format(json.dumps(recall, indent=2)))
         logger.info("----------------------------------------------------------")
 
         plotter.plot_scalar(train_loss, epoch, "train/loss")

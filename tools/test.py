@@ -27,16 +27,12 @@ def test(
     model.eval()
     test_loss = 0
     test_acc = {}
-    precision = {}
-    recall = {}
     confusion_matrix = {}
     results = {}
     results["action_id"] = []
     for cls, no_cls in cfg.MODEL.NUM_CLASSES.items():
         test_acc[cls] = [0] * (len(cfg.VAL.TOPK))
         confusion_matrix[cls] = torch.zeros((no_cls, no_cls), device=device)
-        precision[cls] = 0
-        recall[cls] = 0
         results[cls] = []
 
     with torch.no_grad():
@@ -54,12 +50,10 @@ def test(
                 loss = model.get_loss(criterion, target, out)
                 test_loss += loss.item()
                 for cls in test_acc.keys():
-                    acc, conf_mat, prec, rec = metric.calculate_metrics(
+                    acc, conf_mat = metric.calculate_metrics(
                         out[cls], target[cls], device, topk=cfg.VAL.TOPK
                     )
                     test_acc[cls] = [x + y for x, y in zip(test_acc[cls], acc)]
-                    precision[cls] += prec
-                    recall[cls] += rec
                     confusion_matrix[cls] += conf_mat
 
             results["action_id"].extend([action_id.numpy()])
@@ -72,12 +66,10 @@ def test(
         test_loss /= no_batches
         for cls in test_acc.keys():
             test_acc[cls] = [round(x / no_batches, 2) for x in test_acc[cls]]
-            precision[cls] = round(precision[cls] / no_batches, 2)
-            recall[cls] = round(recall[cls] / no_batches, 2)
             if device.type == "cuda":
                 confusion_matrix[cls] = confusion_matrix[cls].cpu()
             confusion_matrix[cls] = confusion_matrix[cls].numpy()
-        return test_loss, test_acc, confusion_matrix, precision, recall, results
+        return test_loss, test_acc, confusion_matrix, results
     else:
         return results
 
@@ -182,10 +174,8 @@ def run_tester(cfg, logger, modality):
         logger.info("----------------------------------------------------------")
         logger.info("Accuracy Top {}:".format(cfg.VAL.TOPK))
         logger.info(json.dumps(results[1], indent=2))
-        logger.info("Precision: {}".format(json.dumps(results[3], indent=2)))
-        logger.info("Recall: {}".format(json.dumps(results[4], indent=2)))
         logger.info("----------------------------------------------------------")
-        results_dict = results[5]
+        results_dict = results[3]
     else:
         results_dict = results
 
