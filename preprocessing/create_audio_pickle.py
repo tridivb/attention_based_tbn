@@ -12,7 +12,7 @@ def parse_args():
         "--sr", dest="sr", help="sampling rate of audio", default=24000, type=int
     )
     parser.add_argument(
-        "--out_dir",
+        "--out-dir",
         dest="out_dir",
         help="path to save output files",
         default=os.path.join(

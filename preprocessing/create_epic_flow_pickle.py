@@ -3,6 +3,7 @@ import os
 import numpy as np
 import cv2
 import time
+import pandas as pd
 from parse import parse
 from tqdm import tqdm
 from joblib import Parallel, delayed
@@ -13,15 +14,15 @@ def parse_args():
         description="dump epic kitchens flow images into pickle files"
     )
     parser.add_argument(
-        "--lst-file",
-        help="list of videos",
-        default="<path_to_epic_kitchens>/EPIC_KITCHENS_2018/vid_list_mini.csv",
+        "annotation_file",
+        help="list of annotations",
+        default="<path_to_epic_kitchens>/annotations/EPIC_train_action_labels.csv",
         type=str,
     )
     parser.add_argument(
-        "--root-dir",
+        "root_dir",
         help="root dir to epic kitchens",
-        default="<path_to_epic_kitchens>/EPIC_KITCHENS_2018/frames_rgb_flow/flow",
+        default="<path_to_epic_kitchens>/EPIC_KITCHENS_2018/frames_rgb_flow/flow/<train or test>",
         type=str,
     )
     parser.add_argument(
@@ -62,83 +63,86 @@ def get_time_diff(start_time, end_time):
 
 
 def read_image(path, img_file):
+    assert os.path.exists(
+        os.path.join(path, "u", img_file)
+    ), "{} file does not exist".format(os.path.join(path, "u", img_file))
     u_img = cv2.imread(os.path.join(path, "u", img_file), 0)
+    assert os.path.exists(
+        os.path.join(path, "u", img_file)
+    ), "{} file does not exist".format(os.path.join(path, "v", img_file))
     v_img = cv2.imread(os.path.join(path, "v", img_file), 0)
     img = np.concatenate((u_img[..., None], v_img[..., None]), axis=2).astype(np.uint8)
     return img
 
 
 def save_images_to_npy(
-    v,
-    root_dir,
-    out_dir,
-    win_len,
-    ext="jpg",
-    file_format="frame_{:010d}.jpg",
-    flow_win_len=5,
+    record, root_dir, out_dir, win_len, ext="jpg", file_format="frame_{:010d}.jpg",
 ):
 
-    vid_path = os.path.join(root_dir, v)
-    vid_id = os.path.split(v)[1]
+    vid_id = record["video_id"]
+    vid_path = os.path.join(root_dir, record["participant_id"], vid_id)
 
     out_dir = os.path.join(out_dir, "flow_pickle", vid_id)
     os.makedirs(out_dir, exist_ok=True)
 
-    all_files_u = sorted(
-        filter(lambda x: x.endswith(ext), os.listdir(os.path.join(vid_path, "u")),),
-        key=lambda x: parse(file_format, x)[0],
-    )
-    all_files_v = sorted(
-        filter(lambda x: x.endswith(ext), os.listdir(os.path.join(vid_path, "u")),),
-        key=lambda x: parse(file_format, x)[0],
-    )
-    if all_files_u == all_files_v:
-        all_files = all_files_u
-    else:
-        raise Exception(
-            "Count of flow files in each direction do not match for video {}".format(v)
-        )
+    start_frame = max(record["start_frame"] // 2, 1)
+    end_frame = max(record["stop_frame"] // 2, 1)
 
-    h, w, c = read_image(vid_path, all_files[0]).shape
-    n = len(all_files)
-
-    for idx in range(n - win_len):
-        if idx == 0:
+    for idx in range(start_frame, end_frame + 1 - win_len):
+        if idx == start_frame:
             img = []
             for i in range(win_len):
-                img.append(read_image(vid_path, all_files[idx + i]))
+                img.append(read_image(vid_path, file_format.format(idx + i)))
         else:
             img = [img[:, :, 2:]]
-            img.append(read_image(vid_path, all_files[idx + win_len]))
+            img.append(read_image(vid_path, file_format.format(idx + win_len)))
         img = np.concatenate(img, axis=2)
-        out_file = os.path.join(out_dir, os.path.splitext(all_files[idx])[0])
+        out_file = os.path.join(
+            out_dir, os.path.splitext(file_format.format(idx - 1))[0] + ".npz"
+        )
         # np.save(out_file, img)
-        np.savez_compressed(out_file, arr=img)
+        if os.path.exists(out_file):
+            print("{} already present.".format(out_file))
+            continue
+        else:
+            np.savez_compressed(out_file, flow=img)
 
-    print("----------------------------------------------------------")
-    print("Flow pickles for {} saved to {}.".format(vid_id, out_dir))
-    print("----------------------------------------------------------")
+    # print("----------------------------------------------------------")
+    # print("Flow pickles for {} saved to {}.".format(vid_id, out_dir))
+    # print("----------------------------------------------------------")
 
 
 def main(args):
 
-    with open(args.lst_file) as f:
-        vid_list = [x.strip() for x in f.readlines() if len(x.strip()) > 0]
+    annotations = pd.read_csv(args.annotation_file)
 
     start = time.time()
 
-    print("Processing {} videos with {} concurrent workers".format(len(vid_list), args.njobs))
+    print(
+        "Processing {} video annoations with {} concurrent workers".format(
+            annotations.shape[0], args.njobs
+        )
+    )
     print("----------------------------------------------------------")
-    results = Parallel(n_jobs=args.njobs)(
+    # for r in annotations.iterrows():
+    #     save_images_to_npy(
+    #         r[1],
+    #         args.root_dir,
+    #         args.out_dir,
+    #         args.win_len,
+    #         ext=args.ext,
+    #         file_format=args.file_format,
+    #     )
+    results = Parallel(n_jobs=args.njobs, verbose=10)(
         delayed(save_images_to_npy)(
-            v,
+            r[1],
             args.root_dir,
             args.out_dir,
             args.win_len,
             ext=args.ext,
             file_format=args.file_format,
         )
-        for v in vid_list
+        for r in annotations.iterrows()
     )
 
     print("Done")
