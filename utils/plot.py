@@ -16,15 +16,15 @@ class Plotter(object):
 
         self.writer.add_scalar(plot_name, val, epoch)
 
-    def plot_dict(self, dict_input, epoch, plot_header):
-        assert isinstance(dict_input, dict)
-        assert isinstance(epoch, (float, int))
-        assert isinstance(plot_header, str)
+    # def plot_dict(self, dict_input, epoch, plot_header):
+    #     assert isinstance(dict_input, dict)
+    #     assert isinstance(epoch, (float, int))
+    #     assert isinstance(plot_header, str)
 
-        for _, val in dict_input.items():
-            if isinstance(val, list):
-                for v in val:
-                    plot_name = plot_header + "_{}".format(v)
-                    self.writer.add_scalar(plot_name, v, epoch)
-            elif isinstance(val, (float, int)):
-                self.writer.add_scalar(plot_header, val, epoch)
+    #     for k, val in dict_input.items():
+    #         if isinstance(val, list):
+    #             for v in val:
+    #                 plot_name = "{} {}_{}".format(k, plot_header, )
+    #                 self.writer.add_scalar(plot_name, v, epoch)
+    #         elif isinstance(val, (float, int)):
+    #             self.writer.add_scalar(plot_header, val, epoch)

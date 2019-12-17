@@ -353,7 +353,11 @@ def run_trainer(cfg, logger, modality, writer):
 
         plotter.plot_scalar(train_loss, epoch, "train/loss")
         plotter.plot_scalar(val_loss, epoch, "val/loss")
-        plotter.plot_dict(val_acc, epoch, "val/accuracy/top")
+        for cls, acc in val_acc.items():
+            for k, v in enumerate(acc):
+                plotter.plot_scalar(
+                    v, epoch, "val/accuracy/{}_top_{}".format(cls, cfg.VAL.TOPK[k])
+                )
 
     hours, minutes, seconds = get_time_diff(start_time, time.time())
     logger.info(

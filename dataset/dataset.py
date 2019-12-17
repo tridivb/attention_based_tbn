@@ -26,8 +26,9 @@ class Video_Dataset(Dataset):
     ):
         self.cfg = cfg
         self.root_dir = cfg.DATA.DATA_DIR
-        self.frame_dir = cfg.DATA.FRAME_DIR_PREFIX
-        self.audio_dir = cfg.DATA.AUDIO_DIR_PREFIX
+        self.rgb_prefix = cfg.DATA.RGB_DIR_PREFIX
+        self.flow_prefix = cfg.DATA.FLOW_DIR_PREFIX
+        self.audio_prefix = cfg.DATA.AUDIO_DIR_PREFIX
 
         self.vis_file_ext = cfg.DATA.FRAME_FILE_EXT
         self.aud_file_ext = cfg.DATA.AUDIO_FILE_EXT
@@ -35,8 +36,9 @@ class Video_Dataset(Dataset):
         self.modality = modality
         self.mode = mode
 
+        self.read_flow_pickle = cfg.DATA.READ_FLOW_PICKLE
         self.sampling_rate = cfg.DATA.AUDIO_SAMPLING_RATE
-        self.read_pickle = cfg.DATA.READ_AUDIO_PICKLE
+        self.read_audio_pickle = cfg.DATA.READ_AUDIO_PICKLE
 
         self.transform = transform
 
@@ -73,17 +75,10 @@ class Video_Dataset(Dataset):
         vid_record = EpicVideoRecord(self.annotations.iloc[index])
         vid_id = vid_record.untrimmed_video_name
 
-        self.frame_path = os.path.join(
-            self.cfg.DATA.DATA_DIR, self.cfg.DATA.FRAME_DIR_PREFIX, vid_id
-        )
-        self.audio_path = os.path.join(
-            self.cfg.DATA.DATA_DIR, self.cfg.DATA.AUDIO_DIR_PREFIX, vid_id
-        )
-
         indices = {}
         for m in self.modality:
             indices[m] = self._get_offsets(vid_record, m)
-            if self.frame_len[m] > 1:
+            if m == "Flow" and not self.read_flow_pickle:
                 frame_indices = (
                     indices[m].repeat(self.frame_len[m])
                     + np.tile(np.arange(self.frame_len[m]), self.num_segments)
@@ -109,21 +104,22 @@ class Video_Dataset(Dataset):
                 offsets = np.random.randint(seg_len, size=self.num_segments)
             else:
                 offsets = seg_len // 2
-            
+
             indices = (
                 vid_record.start_frame[modality]
                 + np.arange(0, self.num_segments) * seg_len
                 + offsets
             ).astype(int)
         else:
-            indices = vid_record.start_frame[modality] + np.zeros((self.num_segments))
+            indices = vid_record.start_frame[modality] + np.zeros(
+                (self.num_segments), dtype=int
+            )
 
         return indices
 
     def _get_frames(self, vid_record, modality, vid_id, indices):
 
         frames = []
-
         for ind in indices:
             frames.extend(self._read_frames(vid_record, ind, vid_id, modality))
         return frames
@@ -131,37 +127,59 @@ class Video_Dataset(Dataset):
     def _read_frames(self, vid_record, frame_idx, vid_id, modality):
         if modality == "RGB":
             rgb_file_name = "img_{:010d}.{}".format(frame_idx, self.vis_file_ext)
-            rgb_path = os.path.join(
-                self.cfg.DATA.DATA_DIR, self.cfg.DATA.FRAME_DIR_PREFIX, vid_id
-            )
+            rgb_path = os.path.join(self.root_dir, self.rgb_prefix, vid_id)
             img = cv2.imread(os.path.join(rgb_path, rgb_file_name))
             # Convert to rgb
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             return [img]
         elif modality == "Flow":
-            flow_file_name = [
-                "x_{:010d}.{}".format(frame_idx, self.vis_file_ext),
-                "y_{:010d}.{}".format(frame_idx, self.vis_file_ext),
-            ]
-            flow_path = os.path.join(
-                self.cfg.DATA.DATA_DIR, self.cfg.DATA.FRAME_DIR_PREFIX, vid_id
-            )
-            img_x = cv2.imread(os.path.join(flow_path, flow_file_name[0]), 0)
-            img_y = cv2.imread(os.path.join(flow_path, flow_file_name[1]), 0)
-            return [img_x, img_y]
+            return self._get_flow_frames(frame_idx, vid_id)
         elif modality == "Audio":
             spec = self._get_audio(vid_record, frame_idx, vid_id)
             return [spec]
 
+    def _get_flow_frames(self, frame_idx, vid_id):
+        if self.read_flow_pickle:
+            flow_file_name = "frame_{:010d}.npz".format(frame_idx)
+            flow_path = os.path.join(self.root_dir, self.flow_prefix, vid_id)
+            img = None
+            try:
+                with np.load(os.path.join(flow_path, flow_file_name)) as data:
+                    img = data["flow"]
+                    img = [img[:, :, c] for c in range(img.shape[2])]
+            except Exception as e:
+                raise Exception(
+                    "Failed to load flow file {} with error {}.".format(
+                        os.path.join(flow_path, flow_file_name), e
+                    )
+                )
+            return img
+        else:
+            flow_file_name = [
+                "x_{:010d}.{}".format(frame_idx, self.vis_file_ext),
+                "y_{:010d}.{}".format(frame_idx, self.vis_file_ext),
+            ]
+            flow_path = os.path.join(self.root_dir, self.rgb_prefix, vid_id)
+            img_x = cv2.imread(os.path.join(flow_path, flow_file_name[0]), 0)
+            img_y = cv2.imread(os.path.join(flow_path, flow_file_name[1]), 0)
+            return [img_x, img_y]
+
     def _get_audio(self, vid_record, frame_idx, vid_id):
         min_len = int(self.cfg.DATA.AUDIO_LENGTH * self.cfg.DATA.SAMPLING_RATE)
 
-        start_sec = round((frame_idx / self.cfg.DATA.VID_FPS) - (self.cfg.DATA.AUDIO_LENGTH / 2), 3)
-        if start_sec + self.cfg.DATA.AUDIO_LENGTH > round(vid_record.end_frame["Audio"] / self.cfg.DATA.VID_FPS, 3):
-            start_sec = round(vid_record.end_frame["Audio"] / self.cfg.DATA.VID_FPS, 3) - self.cfg.DATA.AUDIO_LENGTH
+        start_sec = round(
+            (frame_idx / self.cfg.DATA.VID_FPS) - (self.cfg.DATA.AUDIO_LENGTH / 2), 3
+        )
+        if start_sec + self.cfg.DATA.AUDIO_LENGTH > round(
+            vid_record.end_frame["Audio"] / self.cfg.DATA.VID_FPS, 3
+        ):
+            start_sec = (
+                round(vid_record.end_frame["Audio"] / self.cfg.DATA.VID_FPS, 3)
+                - self.cfg.DATA.AUDIO_LENGTH
+            )
         start_frame = int(max(0, start_sec * self.cfg.DATA.SAMPLING_RATE))
 
-        if self.read_pickle:
+        if self.read_audio_pickle:
             npy_file = os.path.join(
                 self.cfg.DATA.DATA_DIR,
                 self.cfg.DATA.AUDIO_DIR_PREFIX,
@@ -170,7 +188,7 @@ class Video_Dataset(Dataset):
             try:
                 sample = np.load(npy_file)
             except Exception as e:
-                print(
+                raise Exception(
                     "Failed to read audio sample {} with error {}".format(npy_file, e)
                 )
         else:
@@ -181,9 +199,7 @@ class Video_Dataset(Dataset):
             )
             try:
                 sample, _ = lr.core.load(
-                    aud_file,
-                    sr=self.cfg.DATA.SAMPLING_RATE,
-                    mono=True,
+                    aud_file, sr=self.cfg.DATA.SAMPLING_RATE, mono=True,
                 )
             except Exception as e:
                 print(
