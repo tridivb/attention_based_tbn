@@ -74,9 +74,18 @@ def read_image(path, img_file):
     img = np.concatenate((u_img[..., None], v_img[..., None]), axis=2).astype(np.uint8)
     return img
 
+def integrity_check(file):
+    try:
+        with np.load(file) as data:
+            _ = data["flow"]
+            return True        
+    except:
+        print("{} is corrupted. Overwriting file.".format(file))
+        return False
 
-def save_images_to_npy(
-    record, root_dir, out_dir, win_len, ext="jpg", file_format="frame_{:010d}.jpg",
+
+def save_images_to_pickle(
+    record, root_dir, out_dir, win_len, ext="jpg", file_format="frame_{:010d}.jpg", attempts=10
 ):
 
     vid_id = record["video_id"]
@@ -86,30 +95,33 @@ def save_images_to_npy(
     os.makedirs(out_dir, exist_ok=True)
 
     start_frame = max(record["start_frame"] // 2, 1)
-    end_frame = max(record["stop_frame"] // 2, 1)
+    end_frame = max(record["stop_frame"] // 2, 2)
 
+    full_read = True
     for idx in range(start_frame, end_frame + 1 - win_len):
-        if idx == start_frame:
-            img = []
-            for i in range(win_len):
-                img.append(read_image(vid_path, file_format.format(idx + i)))
-        else:
-            img = [img[:, :, 2:]]
-            img.append(read_image(vid_path, file_format.format(idx + win_len)))
-        img = np.concatenate(img, axis=2)
         out_file = os.path.join(
             out_dir, os.path.splitext(file_format.format(idx - 1))[0] + ".npz"
         )
-        # np.save(out_file, img)
         if os.path.exists(out_file):
-            print("{} already present.".format(out_file))
-            continue
+            if integrity_check(out_file):
+                full_read = True
+                continue
         else:
-            np.savez_compressed(out_file, flow=img)
-
-    # print("----------------------------------------------------------")
-    # print("Flow pickles for {} saved to {}.".format(vid_id, out_dir))
-    # print("----------------------------------------------------------")
+            for a in range(attempts):
+                if full_read:
+                    img = []
+                    for i in range(win_len):
+                        img.append(read_image(vid_path, file_format.format(idx + i)))
+                else:
+                    img = [img[:, :, 2:]]
+                    img.append(read_image(vid_path, file_format.format(idx + win_len)))
+                img = np.concatenate(img, axis=2)
+                np.savez_compressed(out_file, flow=img)
+                if integrity_check(out_file):
+                    full_read = False
+                    break
+                elif a == attempts - 1:
+                    print("Unable to save {} properly. File might be corrupted".format(out_file))
 
 
 def main(args):
@@ -134,7 +146,7 @@ def main(args):
     #         file_format=args.file_format,
     #     )
     results = Parallel(n_jobs=args.njobs, verbose=10)(
-        delayed(save_images_to_npy)(
+        delayed(save_images_to_pickle)(
             r[1],
             args.root_dir,
             args.out_dir,
