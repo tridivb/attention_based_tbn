@@ -4,7 +4,6 @@ import numpy as np
 import cv2
 import time
 import pandas as pd
-from parse import parse
 from tqdm import tqdm
 from joblib import Parallel, delayed
 
@@ -74,18 +73,26 @@ def read_image(path, img_file):
     img = np.concatenate((u_img[..., None], v_img[..., None]), axis=2).astype(np.uint8)
     return img
 
+
 def integrity_check(file):
     try:
         with np.load(file) as data:
             _ = data["flow"]
-            return True        
+            data.close()
+            return True
     except:
         print("{} is corrupted. Overwriting file.".format(file))
         return False
 
 
 def save_images_to_pickle(
-    record, root_dir, out_dir, win_len, ext="jpg", file_format="frame_{:010d}.jpg", attempts=10
+    record,
+    root_dir,
+    out_dir,
+    win_len,
+    ext="jpg",
+    file_format="frame_{:010d}.jpg",
+    attempts=10,
 ):
 
     vid_id = record["video_id"]
@@ -102,10 +109,9 @@ def save_images_to_pickle(
         out_file = os.path.join(
             out_dir, os.path.splitext(file_format.format(idx - 1))[0] + ".npz"
         )
-        if os.path.exists(out_file):
-            if integrity_check(out_file):
-                full_read = True
-                continue
+        if os.path.exists(out_file) and integrity_check(out_file):
+            full_read = True
+            continue
         else:
             for a in range(attempts):
                 if full_read:
@@ -121,7 +127,11 @@ def save_images_to_pickle(
                     full_read = False
                     break
                 elif a == attempts - 1:
-                    print("Unable to save {} properly. File might be corrupted".format(out_file))
+                    print(
+                        "Unable to save {} properly. File might be corrupted".format(
+                            out_file
+                        )
+                    )
 
 
 def main(args):
@@ -136,25 +146,25 @@ def main(args):
         )
     )
     print("----------------------------------------------------------")
-    # for r in annotations.iterrows():
-    #     save_images_to_npy(
-    #         r[1],
+    # for rid, r in annotations.iterrows():
+    #     save_images_to_pickle(
+    #         r,
     #         args.root_dir,
     #         args.out_dir,
     #         args.win_len,
     #         ext=args.ext,
     #         file_format=args.file_format,
     #     )
-    results = Parallel(n_jobs=args.njobs, verbose=10)(
+    results = Parallel(n_jobs=args.njobs, verbose=5)(
         delayed(save_images_to_pickle)(
-            r[1],
+            r,
             args.root_dir,
             args.out_dir,
             args.win_len,
             ext=args.ext,
             file_format=args.file_format,
         )
-        for r in annotations.iterrows()
+        for _, r in annotations.iterrows()
     )
 
     print("Done")
