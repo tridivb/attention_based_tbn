@@ -15,14 +15,34 @@ from .transform import *
 
 
 class Video_Dataset(Dataset):
+    """
+    Video Dataset class
+
+    Args
+    ----------
+    cfg: Dict
+        Dictonary of config parameters
+    vid_list: list
+        List of videos to process
+    annotation_file: str
+        Relative path of annotation file containing data of trimmed action segments
+    modality: list, default = ["RGB"]
+        List of modalities
+    transform: list, default = ["ToTensor()"]
+        List of transforms to apply
+    mode: str, default = "train"
+        Mode of dataloader
+    
+    """
+
     def __init__(
         self,
         cfg,
-        vid_list: list,
-        annotation_file: str,
-        modality: list = ["RGB"],
-        transform=None,
-        mode: str = "train",
+        vid_list,
+        annotation_file,
+        modality=["RGB"],
+        transform=["ToTensor()"],
+        mode="train",
     ):
         self.cfg = cfg
         self.root_dir = cfg.DATA.DATA_DIR
@@ -62,12 +82,36 @@ class Video_Dataset(Dataset):
             self.annotations = pd.read_pickle(annotation_file)
         self.annotations = self.annotations.query("video_id in @vid_list")
 
-    def __len__(self) -> int:
+    def __len__(self):
+        """
+        Get length of the dataset
+
+        Returns
+        ----------
+        len: int
+            Number of trimmed action segments to be processed
+        """
+
         return self.annotations.shape[0]
 
-    def __getitem__(self, index: int) -> (Tensor, int):
+    def __getitem__(self, index):
         """
+        Get dataset items
+
+        Args
+        ----------
+        index: int
+            Index of dataset to retrieve
         
+        Returns
+        ----------
+        data: dict
+            Dictionary of frames for each modality
+        target: dict
+            Dictionary of target labels for each class
+        action_id: str
+            Video id of the untrimmed video for the trimmed action segment
+
         """
 
         data = {}
@@ -78,6 +122,7 @@ class Video_Dataset(Dataset):
         indices = {}
         for m in self.modality:
             indices[m] = self._get_offsets(vid_record, m)
+            # Read individual flow files
             if m == "Flow" and not self.read_flow_pickle:
                 frame_indices = (
                     indices[m].repeat(self.frame_len[m])
@@ -96,13 +141,32 @@ class Video_Dataset(Dataset):
             return data, target, vid_record.action_id
 
     def _get_offsets(self, vid_record, modality):
+        """
+        Helper function to get offsets for each temporal binding window
+
+        Args
+        ----------
+        vid_record: EpicVideoRecord object
+            Object of EpicVideoRecord class
+        modality: str
+            Input modality to process
+        
+        Returns
+        ----------
+        indices: np.ndarray
+            Array of indices for number of segments or temporal binding window.
+
+        """
+
         seg_len = (
             vid_record.num_frames[modality] - self.frame_len[modality] + 1
         ) // self.num_segments
         if seg_len > 0:
             if self.mode == "train":
+                # randomly select an offset for the segment
                 offsets = np.random.randint(seg_len, size=self.num_segments)
             else:
+                # choose the center as the offset of the segment
                 offsets = seg_len // 2
 
             indices = (
@@ -118,6 +182,26 @@ class Video_Dataset(Dataset):
         return indices
 
     def _get_frames(self, vid_record, modality, vid_id, indices):
+        """
+        Helper function to get list of frames for a specific modality
+
+        Args
+        ----------
+        vid_record: EpicVideoRecord object
+            Object of EpicVideoRecord class
+        modality: str
+            Input modality to process
+        vid_id: str
+            Untrimmed Video id
+        indices: np.ndarray
+            Array of indices to process
+        
+        Returns
+        ----------
+        frames: list
+            List of arrays for images or spectrograms
+
+        """
 
         frames = []
         for ind in indices:
@@ -125,6 +209,27 @@ class Video_Dataset(Dataset):
         return frames
 
     def _read_frames(self, vid_record, frame_idx, vid_id, modality):
+        """
+        Helper function to get read images or get spectrogram for an index
+
+        Args
+        ----------
+        vid_record: EpicVideoRecord object
+            Object of EpicVideoRecord class
+        frame_idx: int
+            Index of the frame to be read
+        vid_id: str
+            Untrimmed Video id
+        modality: str
+            Input modality to process
+        
+        Returns
+        ----------
+        img/spec: list
+            List of one array containing the image or spectrogram
+
+        """
+
         if modality == "RGB":
             rgb_file_name = "img_{:010d}.{}".format(frame_idx, self.vis_file_ext)
             rgb_path = os.path.join(self.root_dir, self.rgb_prefix, vid_id)
@@ -133,13 +238,30 @@ class Video_Dataset(Dataset):
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             return [img]
         elif modality == "Flow":
-            return self._get_flow_frames(frame_idx, vid_id)
+            return self._read_flow_frames(frame_idx, vid_id)
         elif modality == "Audio":
             spec = self._get_audio(vid_record, frame_idx, vid_id)
             return [spec]
 
-    def _get_flow_frames(self, frame_idx, vid_id):
+    def _read_flow_frames(self, frame_idx, vid_id):
+        """
+        Helper function to read optical flow images from compressed image or numpy files
+
+        Args
+        ----------
+        frame_idx: int
+            Index of the frame to be read
+        vid_id: str
+            Untrimmed Video id
+        
+        Returns
+        ----------
+        img: list
+            List of stacked optical flow frames
+
+        """
         if self.read_flow_pickle:
+            # Read an array of stacked optical flow frames
             flow_file_name = "frame_{:010d}.npz".format(frame_idx)
             flow_path = os.path.join(self.root_dir, self.flow_prefix, vid_id)
             img = None
@@ -147,6 +269,7 @@ class Video_Dataset(Dataset):
                 with np.load(os.path.join(flow_path, flow_file_name)) as data:
                     img = data["flow"]
                     img = [img[:, :, c] for c in range(img.shape[2])]
+                    data.close()
             except Exception as e:
                 raise Exception(
                     "Failed to load flow file {} with error {}.".format(
@@ -155,6 +278,7 @@ class Video_Dataset(Dataset):
                 )
             return img
         else:
+            # Read individual optical flow frames into a list
             flow_file_name = [
                 "x_{:010d}.{}".format(frame_idx, self.vis_file_ext),
                 "y_{:010d}.{}".format(frame_idx, self.vis_file_ext),
@@ -165,8 +289,27 @@ class Video_Dataset(Dataset):
             return [img_x, img_y]
 
     def _get_audio(self, vid_record, frame_idx, vid_id):
+        """
+        Helper function to read audio data from raw or numpy files
+
+        Args
+        ----------
+        vid_record: EpicVideoRecord object
+            Object of EpicVideoRecord class
+        frame_idx: int
+            Index of the frame to be read
+        vid_id: str
+            Untrimmed Video id
+        
+        Returns
+        ----------
+        spec: np.ndarray
+            Array of audio spectrogram
+
+        """
         min_len = int(self.cfg.DATA.AUDIO_LENGTH * self.cfg.DATA.SAMPLING_RATE)
 
+        # Find the starting temporal offset of the audio sample
         start_sec = round(
             (frame_idx / self.cfg.DATA.VID_FPS) - (self.cfg.DATA.AUDIO_LENGTH / 2), 3
         )
@@ -177,9 +320,12 @@ class Video_Dataset(Dataset):
                 round(vid_record.end_frame["Audio"] / self.cfg.DATA.VID_FPS, 3)
                 - self.cfg.DATA.AUDIO_LENGTH
             )
+        # Find the starting frame of the audio sample array
         start_frame = int(max(0, start_sec * self.cfg.DATA.SAMPLING_RATE))
 
+        # Read untrimmed audio sample
         if self.read_audio_pickle:
+            # Read from numpy file
             npy_file = os.path.join(
                 self.cfg.DATA.DATA_DIR,
                 self.cfg.DATA.AUDIO_DIR_PREFIX,
@@ -192,6 +338,7 @@ class Video_Dataset(Dataset):
                     "Failed to read audio sample {} with error {}".format(npy_file, e)
                 )
         else:
+            # Read from raw file
             aud_file = os.path.join(
                 self.cfg.DATA.DATA_DIR,
                 self.cfg.DATA.AUDIO_DIR_PREFIX,
@@ -206,6 +353,7 @@ class Video_Dataset(Dataset):
                     "Failed to read audio sample {} with error {}".format(aud_file, e)
                 )
 
+        # Trim audio sample as per segment boundaries
         if sample.shape[0] < min_len:
             sample = np.pad(sample, (0, min_len - sample.shape[0]), mode="constant")
         if sample.shape[0] >= min_len:
@@ -216,6 +364,27 @@ class Video_Dataset(Dataset):
         return spec
 
     def _get_spectrogram(self, sample, window_size=10, step_size=5, eps=1e-6):
+        """
+        Helper function to create 2D audio spectogram from 1D audio sample
+
+        Args
+        ----------
+        sample: np.ndarray
+            1D array of untrimmed audio sample
+        window_size: int, default = 10
+            Temporal size in millisecond of window function for STFT
+        step_size: int, default = 5
+            Hop size in millisecond between each sample for STFT
+        eps: double default = 1e-6
+            Correction term to prevent divide by zero
+        
+        Returns
+        ----------
+        spec: np.ndarray
+            Array of audio spectrogram
+
+        """
+
         nperseg = int(round(window_size * self.cfg.DATA.SAMPLING_RATE / 1e3))
         noverlap = int(round(step_size * self.cfg.DATA.SAMPLING_RATE / 1e3))
 
@@ -232,6 +401,22 @@ class Video_Dataset(Dataset):
         return spec
 
     def _transform_data(self, img_stack, modality):
+        """
+        Helper function to transform input data
+
+        Args
+        ----------
+        img_stack: list
+            list of stacked input frames
+        modality: str
+            Modality of input frames
+        
+        Returns
+        ----------
+        img_stack: Tensor
+            A tensor of transformed input frames
+
+        """
 
         img_stack = self.transform[modality](img_stack)
 

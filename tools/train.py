@@ -190,9 +190,9 @@ def run_trainer(cfg, logger, modality, writer):
             train_transforms[m] = torchvision.transforms.Compose(
                 [
                     MultiScaleCrop(
-                        cfg.DATA.TRAIN_CROP_SIZE, [1, 0.875, 0.75, 0.66], is_flow=False
+                        cfg.DATA.TRAIN_CROP_SIZE, [1, 0.875, 0.75, 0.66]
                     ),
-                    RandomHorizontalFlip(prob=0.5, is_flow=False),
+                    RandomHorizontalFlip(prob=0.5),
                     Stack(m),
                     ToTensor(),
                     Normalize(cfg.DATA.RGB_MEAN, cfg.DATA.RGB_STD),
@@ -200,7 +200,7 @@ def run_trainer(cfg, logger, modality, writer):
             )
             val_transforms[m] = torchvision.transforms.Compose(
                 [
-                    Rescale(cfg.DATA.TEST_SCALE_SIZE, is_flow=False),
+                    Rescale(cfg.DATA.TEST_SCALE_SIZE),
                     CenterCrop(cfg.DATA.TEST_CROP_SIZE),
                     Stack(m),
                     ToTensor(),
@@ -210,9 +210,9 @@ def run_trainer(cfg, logger, modality, writer):
             train_transforms[m] = torchvision.transforms.Compose(
                 [
                     MultiScaleCrop(
-                        cfg.DATA.TRAIN_CROP_SIZE, [1, 0.875, 0.75], is_flow=True
+                        cfg.DATA.TRAIN_CROP_SIZE, [1, 0.875, 0.75]
                     ),
-                    RandomHorizontalFlip(prob=0.5, is_flow=True),
+                    RandomHorizontalFlip(prob=0.5),
                     Stack(m),
                     ToTensor(),
                     Normalize(cfg.DATA.FLOW_MEAN, cfg.DATA.FLOW_STD),
@@ -220,15 +220,15 @@ def run_trainer(cfg, logger, modality, writer):
             )
             val_transforms[m] = torchvision.transforms.Compose(
                 [
-                    Rescale(cfg.DATA.TEST_SCALE_SIZE, is_flow=True),
+                    Rescale(cfg.DATA.TEST_SCALE_SIZE),
                     CenterCrop(cfg.DATA.TEST_CROP_SIZE),
                     Stack(m),
                     ToTensor(),
                 ]
             )
         elif m == "Audio":
-            train_transforms[m] = torchvision.transforms.Compose([Stack(m), ToTensor()])
-            val_transforms[m] = torchvision.transforms.Compose([Stack(m), ToTensor()])
+            train_transforms[m] = torchvision.transforms.Compose([Stack(m), ToTensor(is_audio=True)])
+            val_transforms[m] = torchvision.transforms.Compose([Stack(m), ToTensor(is_audio=True)])
 
     logger.info("Creating datasets...")
     train_dataset = Video_Dataset(

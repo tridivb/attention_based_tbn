@@ -122,7 +122,7 @@ def run_tester(cfg, logger, modality):
         if m == "RGB":
             test_transforms[m] = torchvision.transforms.Compose(
                 [
-                    Rescale(cfg.DATA.TEST_SCALE_SIZE, is_flow=False),
+                    Rescale(cfg.DATA.TEST_SCALE_SIZE),
                     CenterCrop(cfg.DATA.TEST_CROP_SIZE),
                     Stack(m),
                     ToTensor(),
@@ -132,7 +132,7 @@ def run_tester(cfg, logger, modality):
         elif m == "Flow":
             test_transforms[m] = torchvision.transforms.Compose(
                 [
-                    Rescale(cfg.DATA.TEST_SCALE_SIZE, is_flow=True),
+                    Rescale(cfg.DATA.TEST_SCALE_SIZE),
                     CenterCrop(cfg.DATA.TEST_CROP_SIZE),
                     Stack(m),
                     ToTensor(),
@@ -140,7 +140,7 @@ def run_tester(cfg, logger, modality):
                 ]
             )
         elif m == "Audio":
-            test_transforms[m] = torchvision.transforms.Compose([Stack(m), ToTensor()])
+            test_transforms[m] = torchvision.transforms.Compose([Stack(m), ToTensor(is_audio=True)])
 
     logger.info("Creating the dataset...")
     test_dataset = Video_Dataset(
