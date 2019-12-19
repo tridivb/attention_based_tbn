@@ -6,6 +6,10 @@ from tqdm import tqdm
 
 
 def parse_args():
+    """
+    Helper function to parse command line arguments
+    """
+
     parser = argparse.ArgumentParser(description="dump audio samples into binary files")
     parser.add_argument("audio_dir", help="path to audio files", type=str)
     parser.add_argument(
@@ -35,6 +39,7 @@ def main(args):
 
     rejected = []
     print("Processing audio files ...")
+    # Iterate over the directory and save the audio for each video into a separate numpy file
     for _, _, files in os.walk(args.audio_dir):
         for f in tqdm(files):
             if f.endswith(args.ext):

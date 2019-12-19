@@ -13,12 +13,16 @@ from utils.misc import get_time_diff
 
 
 def parse_args():
+    """
+    Helper function to parse command line arguments
+    """
+
     parser = argparse.ArgumentParser(
         description="dump epic kitchens images into hdf5 databases"
     )
     parser.add_argument(
         "--mode",
-        choices=["rgb", "flow", "audio"],
+        choices=["rgb", "flow"],
         help="rgb/flow mode",
         default="rgb",
         type=str,
@@ -69,6 +73,24 @@ def parse_args():
 
 
 def read_image(path, img_file, mode="rgb"):
+    """
+    Helper function to write a list to a file
+
+    Args
+    ----------
+    path: str
+        Source path of image file
+    img_file: str
+        Name of image file
+    mode: str, default="rgb"
+        Mode of image file
+
+    Returns
+    ----------
+    img: np.ndarray
+        A numpy array of the image
+    """
+
     if mode == "rgb":
         img = cv2.imread(os.path.join(path, img_file))
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
@@ -88,6 +110,29 @@ def save_images_to_hdf5(
     file_format="frame_{:010d}.jpg",
     flow_win_len=5,
 ):
+    """
+    Helper function to iterate over each frame of a trimmed action segment and
+    save the array of stacked flow frames to a compressed numpy file
+
+    Args
+    ----------
+    v: str
+        Relative path of input video to process
+    mode: str
+        Type of frames to process
+    root_dir: str
+        Root directory of frames
+    out_dir: str
+        Directory to store output files
+    ext: str, default="jpg"
+        Extension of optical flow files
+    file_format: str, default="frame_{:010d}.jpg"
+        File naming format
+    flow_win_len: int
+        No of optical flow frames to stack
+
+    """
+
     if mode == "rgb":
         root_dir = os.path.join(root_dir, "rgb")
         out_dir = os.path.join(out_dir, "rgb")
@@ -130,7 +175,9 @@ def save_images_to_hdf5(
     chunk_size = (2500, h, w, c)
 
     h5_file = os.path.join(out_dir, "{}_{}.hdf5".format(vid_id, mode))
-    with h5py.File(h5_file, "w", rdcc_nbytes=cache_size, driver='mpio', comm=MPI.COMM_WORLD) as f:
+    with h5py.File(
+        h5_file, "w", rdcc_nbytes=cache_size, driver="mpio", comm=MPI.COMM_WORLD
+    ) as f:
         dset = f.create_dataset(
             vid_id,
             shape=(n, h, w, c),
@@ -147,43 +194,6 @@ def save_images_to_hdf5(
     print("----------------------------------------------------------")
 
 
-def save_audio_to_hdf5(
-    v, mode, root_dir, out_dir, ext="wav", sr=24000, file_format="P{:01d}_{:01d}.wav"
-):
-    root_dir = os.path.join(root_dir, "audio")
-    out_dir = os.path.join(out_dir, "audio")
-    os.makedirs(out_dir, exist_ok=True)
-
-    vid_id = os.path.split(v)[1]
-    aud_path = os.path.join(root_dir, vid_id)
-    p_id = vid_id.split("_")[0]
-    h5_file = os.path.join(out_dir, "{}_{}.hdf5".format(p_id, mode))
-    if os.path.exists(h5_file):
-        file_mode = "r+"
-    else:
-        file_mode = "w"
-
-    try:
-        sample, _ = lr.core.load(os.path.join(aud_path + "." + ext), sr=sr, mono=True)
-    except Exception as e:
-        raise Exception("Failed to read audio file {} with error {}".format(f, e))
-
-    chunk_size = (sample.shape[0] // 2,)
-    cache_size = chunk_size * 4
-
-    with h5py.File(h5_file, file_mode, rdcc_nbytes=cache_size) as f:
-        dset = f.create_dataset(
-            vid_id,
-            shape=sample.shape,
-            dtype=np.float32,
-            data=sample,
-            compression="gzip",
-            chunks=chunk_size,
-            compression_opts=4,
-        )
-    print("Done. Audio data for {} saved to {}.".format(vid_id, h5_file))
-
-
 def main(args):
 
     with open(args.lst_file) as f:
@@ -193,33 +203,18 @@ def main(args):
     print("----------------------------------------------------------")
 
     start = time.time()
-
-    if args.mode == "audio":
-        Parallel(n_jobs=1)(
-            delayed(save_audio_to_hdf5)(
-                v,
-                args.mode,
-                args.root_dir,
-                args.out_dir,
-                ext=args.ext,
-                sr=args.sr,
-                file_format=args.file_format,
-            )
-            for v in vid_list
+    results = Parallel(n_jobs=args.njobs, verbose=25)(
+        delayed(save_images_to_hdf5)(
+            v,
+            args.mode,
+            args.root_dir,
+            args.out_dir,
+            ext=args.ext,
+            file_format=args.file_format,
+            flow_win_len=args.flow_win_len,
         )
-    else:
-        results = Parallel(n_jobs=args.njobs, verbose=25)(
-            delayed(save_images_to_hdf5)(
-                v,
-                args.mode,
-                args.root_dir,
-                args.out_dir,
-                ext=args.ext,
-                file_format=args.file_format,
-                flow_win_len=args.flow_win_len,
-            )
-            for v in vid_list
-        )
+        for v in vid_list
+    )
 
     print("Done")
     print("----------------------------------------------------------")
