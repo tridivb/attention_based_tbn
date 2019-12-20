@@ -5,6 +5,9 @@ import numpy as np
 
 
 class VGG(nn.Module):
+    """
+    VGG module
+    """
     def __init__(self, model_name, modality, in_channels):
         super(VGG, self).__init__()
 

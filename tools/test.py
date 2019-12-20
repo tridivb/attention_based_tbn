@@ -20,6 +20,39 @@ from dataset.transform import *
 def test(
     cfg, model, data_loader, criterion, modality, logger, device=torch.device("cuda")
 ):
+    """
+    Evaluate the model
+
+    Args
+    ----------
+    cfg: dict
+        Dictionary of config parameters
+    model: torch.nn.model
+        Model to train
+    data_loader: DataLoader
+        Data loader to iterate over the data
+    criterion: loss
+        Loss function to use
+    modality: list
+        List of input modalities
+    logger: logger
+        Python logger
+    device: torch.device, default = torch.device("cuda")
+        Torch device to use
+
+    Returns
+    ----------
+    test_loss,: float
+        Overall validation loss
+    test_acc: dict
+        Accuracy of each type of class
+    confusion_matrix: np.ndarray
+        Array of the confusion matrix over the validation set
+    results: dict
+        Dictionary of model output over the test set
+
+    """
+
     no_batches = round(len(data_loader.dataset) / data_loader.batch_size)
     dict_to_device = TransferTensorDict(device)
     metric = Metric()
@@ -75,6 +108,19 @@ def test(
 
 
 def run_tester(cfg, logger, modality):
+    """
+    Initialize model , data loaders, loss function, optimizer and evaluate the model
+
+    Args
+    ----------
+    cfg: dict
+        Dictionary of config parameters
+    logger: logger
+        Python logger
+    modality: list
+        List of input modalities
+
+    """
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 

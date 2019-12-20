@@ -6,7 +6,22 @@ from tensorboardX import SummaryWriter
 
 
 def setup_handler(logger, handler, fmt, datefmt):
-    # Setup console log format
+    """
+    Helper function to setup console and file handlers for logger
+
+    Args
+    ----------
+    logger: logging.logger
+        Python logger
+    handler: logging.handler
+        Type of logging handler
+    fmt: str
+        Format of logging each line
+    datefmt: str
+        Date time format for each line of logging
+
+    """
+
     handler.setLevel(logging.INFO)
     h_format = logging.Formatter(fmt=fmt, datefmt=datefmt)
     handler.setFormatter(h_format)
@@ -15,6 +30,20 @@ def setup_handler(logger, handler, fmt, datefmt):
 
 
 def setup_logger(log_file):
+    """
+    Helper function to setup console and file handlers for logger
+
+    Args
+    ----------
+    log_file: str
+        Absolute path of log file 
+    
+    Returns
+    ----------
+    logger: logging.logger
+        The logger to use
+
+    """
 
     logger = logging.getLogger(__name__)
 
@@ -37,6 +66,24 @@ def setup_logger(log_file):
 
 
 def setup_log(cfg, modality):
+    """
+    Helper function to setup the log and initialize SummaryWriter
+
+    Args
+    ----------
+    cfg: dict
+        Dictionary of config parameters
+    modality: list
+        List of input modalities
+    
+    Returns
+    ----------
+    logger: logging.logger
+        The logger to use
+    writer: SummaryWriter
+        Tensorboard summary writer to plot metrics
+
+    """
     # Create log directory
     timestamp = datetime.fromtimestamp(time.time()).strftime("%Y-%m-%d_%H-%M-%S")
     log_dir = "run_{}_{}_{}_{}".format(

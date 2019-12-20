@@ -10,6 +10,16 @@ from models.bn_inception import bninception
 
 
 class TBNModel(nn.Module):
+    """
+    Temporal Binding Model
+
+    Args
+    ----------
+    cfg: dict
+        Dictionary of config parameters
+    modality: list
+        List of input modalities
+    """
     def __init__(self, cfg, modality):
         super(TBNModel, self).__init__()
 
@@ -23,6 +33,7 @@ class TBNModel(nn.Module):
             print("Incorrect aggregation type")
             self.agg_type = None
 
+        # Create base model for each modality
         in_features = 0
         for m in self.modality:
             self.add_module("Base_{}".format(m), self._create_base_model(m))
@@ -30,6 +41,7 @@ class TBNModel(nn.Module):
             if cfg.MODEL.FREEZE_BASE:
                 self._freeze_base_model(m, freeze_mode=cfg.MODEL.FREEZE_MODE)
 
+        # Create fusion layer (if applicable) and final linear classificatin layer
         if len(self.modality) > 1:
             self.add_module(
                 "fusion", Fusion(in_features, 512, dropout=cfg.MODEL.FUSION_DROPOUT)
@@ -45,6 +57,19 @@ class TBNModel(nn.Module):
             )
 
     def _create_base_model(self, modality):
+        """
+        Helper function to initialize the base model
+        Args
+        ----------
+        modality: list
+            List of input modalities
+
+        Returns
+        ----------
+        base_model: torch.nn.model
+            The base model
+        """
+
         if modality == "RGB":
             in_channels = 3
         elif modality == "Flow":
@@ -68,6 +93,17 @@ class TBNModel(nn.Module):
         return base_model
 
     def _freeze_base_model(self, modality, freeze_mode):
+        """
+        Helper function to freeze weights of the base model
+        Args
+        ----------
+        modality: list
+            List of input modalities
+        freeze_mode: str
+            Mode of freezing
+
+        """
+
         if freeze_mode == "all":
             print("Freezing the Base model.")
             for param in getattr(self, "Base_{}".format(modality)).parameters():
@@ -80,11 +116,26 @@ class TBNModel(nn.Module):
                     mod.bias.requires_grad = False
 
     def _aggregate_scores(self, scores, new_shape=(1, -1)):
+        """
+        Helper function to freeze weights of the base model
+        
+        Args
+        ----------
+        scores: tensor, dict
+            Final output scores for each temporal binding window
+        new_shape: tuple
+            New shape for the output tensor
+
+        """
+
         assert isinstance(scores, (dict, torch.Tensor))
         assert isinstance(new_shape, tuple)
 
         if isinstance(scores, dict):
             for key in scores.keys():
+                # Reshape the tensor to B x N x feature size,
+                # before calculating the mean over the trimmed action segment
+                # where B = batch size and N = number of segment
                 scores[key] = scores[key].view(new_shape).mean(dim=1)
         else:
             scores = scores[key].view(new_shape).mean(dim=1)
@@ -92,6 +143,9 @@ class TBNModel(nn.Module):
         return scores
 
     def forward(self, input):
+        """
+        Forward pass
+        """
         features = []
         for m in self.modality:
             b, n, c, h, w = input[m].shape
@@ -110,6 +164,20 @@ class TBNModel(nn.Module):
         return out
 
     def get_loss(self, criterion, target, preds):
+        """
+        Helper function calculate loss for each classficiation layer
+        and then sum them up
+
+        Args
+        ----------
+        criterion: torch.nn.loss
+            Loss function to use
+        target: dict
+            Dictionary of target values for each class type
+        preds: dict
+            Dictionary of predicted values for each class type
+
+        """
         assert isinstance(target, dict)
         assert isinstance(preds, dict)
 
@@ -123,6 +191,9 @@ class TBNModel(nn.Module):
 
 
 class Fusion(nn.Module):
+    """
+    Fusion layer module
+    """
     def __init__(self, in_size, out_size, dropout=0):
         super(Fusion, self).__init__()
 
@@ -145,6 +216,9 @@ class Fusion(nn.Module):
 
 
 class Classifier(nn.Module):
+    """
+    Classifier layer module
+    """
     def __init__(self, num_classes, in_features):
         super(Classifier, self).__init__()
 

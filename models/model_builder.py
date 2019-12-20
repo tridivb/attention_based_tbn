@@ -22,11 +22,19 @@ _LOSS_TYPES = {"CrossEntropy": torch.nn.CrossEntropyLoss, "NLL": torch.nn.NLLLos
 
 def build_model(cfg, modality, device):
     """
-    Builds the model.
-    Args:
-        cfg (configs): configs that contains the hyper-parameters to build the
-        backbone.
+    Helper function to build the model and initialize loss function. 
+    All sanity checks for model parameters should be done here before initializing the model
+
+    Args
+    ----------
+    cfg: dict
+        Dictionary of config parameters
+    modality: list
+        List of input modalities
+    device: torch.device
+        Torch device to use
     """
+
     assert (
         cfg.MODEL.ARCH in _MODEL_TYPES.keys()
     ), "Model type '{}' not supported".format(cfg.MODEL.ARCH)
@@ -43,7 +51,7 @@ def build_model(cfg, modality, device):
     # Set loss type
     criterion = _LOSS_TYPES[cfg.MODEL.LOSS_FN]()
 
-    # Use multi-process data parallel model in the multi-gpu setting
+    # Use multi-gpus if set in config
     if cfg.NUM_GPUS > 1 and device.type == "cuda":
         device_ids = cfg.GPU_IDS if len(cfg.GPU_IDS) > 0 else None
         model = torch.nn.DataParallel(model, device_ids=device_ids)

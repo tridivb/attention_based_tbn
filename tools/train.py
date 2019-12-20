@@ -27,6 +27,34 @@ def train(
     logger,
     device=torch.device("cuda"),
 ):
+    """
+    Train the model
+
+    Args
+    ----------
+    cfg: dict
+        Dictionary of config parameters
+    model: torch.nn.model
+        Model to train
+    data_loader: DataLoader
+        Data loader to iterate over the data
+    optimizer: optim
+        Optimizer to use
+    criterion: loss
+        Loss function to use
+    modality: list
+        List of input modalities
+    logger: logger
+        Python logger
+    device: torch.device, default = torch.device("cuda")
+        Torch device to use
+
+    Returns
+    ----------
+    train_loss: float
+        Overall training loss over an epoch
+
+    """
     no_batches = round(len(data_loader.dataset) / data_loader.batch_size)
     batch_interval = no_batches // 4
     dict_to_device = TransferTensorDict(device)
@@ -70,6 +98,37 @@ def train(
 def validate(
     cfg, model, data_loader, criterion, modality, logger, device=torch.device("cuda")
 ):
+    """
+    Validate the model
+
+    Args
+    ----------
+    cfg: dict
+        Dictionary of config parameters
+    model: torch.nn.model
+        Model to train
+    data_loader: DataLoader
+        Data loader to iterate over the data
+    criterion: loss
+        Loss function to use
+    modality: list
+        List of input modalities
+    logger: logger
+        Python logger
+    device: torch.device, default = torch.device("cuda")
+        Torch device to use
+
+    Returns
+    ----------
+    val_loss,: float
+        Overall validation loss
+    val_acc: dict
+        Accuracy of each type of class
+    confusion_matrix: np.ndarray
+        Array of the confusion matrix over the validation set
+
+    """
+
     no_batches = len(data_loader.dataset) // data_loader.batch_size
     dict_to_device = TransferTensorDict(device)
     metric = Metric()
@@ -112,6 +171,21 @@ def validate(
 
 
 def run_trainer(cfg, logger, modality, writer):
+    """
+    Initialize model , data loaders, loss function, optimizer and execute the training
+
+    Args
+    ----------
+    cfg: dict
+        Dictionary of config parameters
+    logger: logger
+        Python logger
+    modality: list
+        List of input modalities
+    writer: SummaryWriter
+        Tensorboard writer to plot the metrics during training
+
+    """
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -204,6 +278,7 @@ def run_trainer(cfg, logger, modality, writer):
                     CenterCrop(cfg.DATA.TEST_CROP_SIZE),
                     Stack(m),
                     ToTensor(),
+                    Normalize(cfg.DATA.RGB_MEAN, cfg.DATA.RGB_STD),
                 ]
             )
         elif m == "Flow":
@@ -224,6 +299,7 @@ def run_trainer(cfg, logger, modality, writer):
                     CenterCrop(cfg.DATA.TEST_CROP_SIZE),
                     Stack(m),
                     ToTensor(),
+                    Normalize(cfg.DATA.FLOW_MEAN, cfg.DATA.FLOW_STD),
                 ]
             )
         elif m == "Audio":

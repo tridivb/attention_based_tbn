@@ -4,6 +4,15 @@ import numpy as np
 
 
 def get_modality(cfg):
+    """
+    Helper function to intialize list of modalities
+
+    Args
+    ----------
+    cfg: dict
+        Dictionary of config parameters
+    """
+
     modality = []
 
     if cfg.DATA.USE_RGB:
@@ -17,6 +26,26 @@ def get_modality(cfg):
 
 
 def get_time_diff(start_time, end_time):
+    """
+    Helper function to calculate time difference
+
+    Args
+    ----------
+    start_time: float
+        Start time in seconds since January 1, 1970, 00:00:00 (UTC)
+    end_time: float
+        End time in seconds since January 1, 1970, 00:00:00 (UTC)
+
+    Returns
+    ----------
+    hours: int
+        Difference of hours between start and end time
+    minutes: int
+        Difference of minutes between start and end time
+    seconds: int
+        Difference of seconds between start and end time
+    """
+
     hours = int((end_time - start_time) / 3600)
     minutes = int((end_time - start_time) / 60) - (hours * 60)
     seconds = round((end_time - start_time) % 60)
@@ -34,6 +63,31 @@ def save_checkpoint(
     scheduler=None,
     filename="checkpoint.pth",
 ):
+    """
+    Helper function to save model checkpoint
+
+    Args
+    ----------
+    model: torch.nn.model
+        Trained model
+    optimizer: optim
+        Trained optimizer
+    epoch: int
+        Epoch progress till the point of saving
+    train_loss_hist: list
+        History of train losses
+    val_loss_hist: list
+        History of validation losses
+    val_loss_acc: list
+        History of validation accuracies
+    confusion_matrix: np.ndarray
+        Confusion matrix for the final epoch over the validation/test set
+    scheduler: torch.optim.lr_scheduler, default = None
+        Trained Learning rate scheduler
+    filename: str, default = "checkpoint.pth"
+        Checkpoint file name
+    """
+
     data = {
         "epoch": epoch,
         "train_loss": train_loss_hist,
@@ -53,6 +107,16 @@ def save_checkpoint(
 
 
 def save_scores(scores, file_name):
+    """
+    Helper function to save output prediction scores for epic kitchens
+
+    Args
+    ----------
+    scores: dict
+        Dictionary of model outputs from forward pass over test set
+    file_name: str
+        Output file name
+    """
 
     out_result = {}
     out_result["version"] = 0.1

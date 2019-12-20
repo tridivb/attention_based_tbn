@@ -5,6 +5,9 @@ import numpy as np
 
 
 class Resnet(nn.Module):
+    """
+    Resnet module
+    """
     def __init__(self, model_name, modality, in_channels):
         super(Resnet, self).__init__()
 

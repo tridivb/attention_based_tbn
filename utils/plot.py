@@ -5,11 +5,17 @@ import time
 
 
 class Plotter(object):
+    """
+    Class to initialize plotter for graphs and images
+    """
     def __init__(self, writer):
         super(Plotter).__init__()
         self.writer = writer
 
     def plot_scalar(self, val, epoch, plot_name):
+        """
+        Plot scalar values in a 2D graph
+        """
         assert isinstance(val, (int, float))
         assert isinstance(epoch, (int, float))
         assert isinstance(plot_name, str)

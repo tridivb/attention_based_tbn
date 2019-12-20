@@ -8,7 +8,14 @@ from pretrainedmodels.models.bninception import BNInception
 
 
 class BNInception(BNInception):
+    """
+    Inherited BNInception class from the pretrainedmodels module
+    """
     def logits(self, features):
+        """
+        Overloaded logits function to return features from BNInception
+        instead of class predictions
+        """
         adaptiveAvgPoolWidth = features.shape[2]
         x = F.avg_pool2d(features, kernel_size=adaptiveAvgPoolWidth)
         x = x.view(x.size(0), -1)
@@ -18,11 +25,23 @@ class BNInception(BNInception):
 
 def bninception(in_channels, modality, pretrained="imagenet", model_dir=""):
     """
-        BNInception model architecture from <https://arxiv.org/pdf/1502.03167.pdf>`_ paper.
+    Initialize the BNInception model and cut off the final linear layer
+    
+    Args
+    ----------
+    in_channels: int
+        Number of input channels
+    modality: list
+        List of input modalities
+    pretrained: str, default = "imagenet"
+        Pretrained model to initialize with
+    model_dir: str, default = ""
+        Location of pretrained model weights
     """
     num_classes = 1000
     if pretrained is not None:
         if pretrained == "kinetics":
+            # For flow, use pretrained kinetics weights
             num_classes = 400
             file = os.path.join(model_dir, "kinetics_bninception_flow.pth")
 
@@ -34,6 +53,7 @@ def bninception(in_channels, modality, pretrained="imagenet", model_dir=""):
     model = BNInception(num_classes=num_classes)
     model.feature_size = 1024
 
+    # Configure first convolution layer and its weights according to modality and input channels
     if modality != "RGB":
         model.conv1_7x7_s2 = nn.Conv2d(
             in_channels, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3)
