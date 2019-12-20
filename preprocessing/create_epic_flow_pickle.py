@@ -171,8 +171,8 @@ def save_images_to_pickle(
         vid_id = record["video_id"]
         vid_path = os.path.join(root_dir, record["participant_id"], vid_id)
 
-        out_dir = os.path.join(out_dir, "flow_pickle", vid_id)
-        os.makedirs(out_dir, exist_ok=True)
+        o_dir = os.path.join(out_dir, "flow_pickle", vid_id)
+        os.makedirs(o_dir, exist_ok=True)
 
         start_frame = max(record["start_frame"] // 2, 1)
         end_frame = max(record["stop_frame"] // 2, 2)
@@ -180,7 +180,7 @@ def save_images_to_pickle(
         full_read = True
         for idx in range(start_frame, end_frame + 1 - win_len):
             out_file = os.path.join(
-                out_dir, os.path.splitext(file_format.format(idx - 1))[0] + ".npz"
+                o_dir, os.path.splitext(file_format.format(idx - 1))[0] + ".npz"
             )
             # If file exists and is ok, skip
             if os.path.exists(out_file) and integrity_check(out_file):
