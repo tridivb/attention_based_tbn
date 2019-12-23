@@ -90,7 +90,7 @@ def train(
         if batch_no == 0 or (batch_no + 1) % batch_interval == 0:
             logger.info(
                 "Batch Progress: [{}/{}] || Train Loss: {:.5f}".format(
-                    (batch_no + 1), no_batches, train_loss / (batch_no + 1),
+                    (batch_no + 1), no_batches, train_loss["total"] / (batch_no + 1),
                 )
             )
 
