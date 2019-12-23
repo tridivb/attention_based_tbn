@@ -1,4 +1,4 @@
-import torch.nn.DataParallel as  DataParallel
+from torch.nn import DataParallel
 
 class DataParallel(DataParallel):
     def get_loss(self, criterion, target, preds):
