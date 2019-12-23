@@ -7,7 +7,7 @@ DATA:
   USE_FLOW: False 
   READ_FLOW_PICKLE: True
   FLOW_DIR_PREFIX: "flow_pickle"
-  USE_AUDIO: True
+  USE_AUDIO: False
   READ_AUDIO_PICKLE: True
   AUDIO_DIR_PREFIX: "audio_pickle"
   VID_FPS: 60
@@ -42,7 +42,7 @@ TRAIN:
   ANNOTATION_FILE: "/media/data/tridiv/epic_kitchens/annotations/EPIC_train_action_labels.csv"
   VID_LIST: "./data/train_split_seen.txt"
   OPTIM: "sgd"
-  BATCH_SIZE: 32 
+  BATCH_SIZE: 64
   EPOCHS: 50
   LR: 1e-2
   MOMENTUM: 0.9
@@ -70,7 +70,7 @@ TEST:
   NUM_SEGMENTS: 25
   SAVE_RESULTS: False
   RESULTS_FILE: "unseen.json"
-  PRE_TRAINED: "/media/data/tridiv/epic/weights/epic_tbn_bninception_RGB_Audio_best.pth"
+  PRE_TRAINED: "/media/data/tridiv/epic/weights/epic_tbn_bninception_RGB_best.pth"
 # Misc
 NUM_WORKERS: 8
 NUM_GPUS: 1
