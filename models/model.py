@@ -4,9 +4,9 @@ import torch.nn as nn
 import torchvision
 import numpy as np
 
-from models.vgg import VGG
-from models.resnet import Resnet
-from models.bn_inception import bninception
+from .vgg import VGG
+from .resnet import Resnet
+from .bn_inception import bninception
 
 
 class TBNModel(nn.Module):

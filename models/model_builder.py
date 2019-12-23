@@ -1,6 +1,7 @@
 import torch
 
-from models.model import TBNModel
+from .model import TBNModel
+from .dataparallel import DataParallel
 
 # Supported model types
 _MODEL_TYPES = {
@@ -54,7 +55,7 @@ def build_model(cfg, modality, device):
     # Use multi-gpus if set in config
     if cfg.NUM_GPUS > 1 and device.type == "cuda":
         device_ids = cfg.GPU_IDS if len(cfg.GPU_IDS) > 0 else None
-        model = torch.nn.DataParallel(model, device_ids=device_ids)
+        model = DataParallel(model, device_ids=device_ids)
         # criterion = torch.nn.DataParallel(criterion, device_ids=device_ids)
 
     model, criterion = model.to(device), criterion.to(device)
