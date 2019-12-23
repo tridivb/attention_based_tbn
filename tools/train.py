@@ -7,6 +7,7 @@ import numpy as np
 import torch
 import torch.optim as optim
 import torchvision
+from tqdm import tqdm
 from torch.utils.data.dataloader import DataLoader
 
 from models.model_builder import build_model
@@ -147,7 +148,7 @@ def validate(
         val_loss[cls] = 0
 
     with torch.no_grad():
-        for data, target, _ in data_loader:
+        for data, target, _ in tqdm(data_loader):
             data, target = dict_to_device(data), dict_to_device(target)
 
             out = model(data)

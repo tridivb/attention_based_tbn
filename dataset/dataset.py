@@ -204,11 +204,31 @@ class Video_Dataset(Dataset):
         """
 
         frames = []
+        if modality == "Audio":
+            aud_sample = self._read_audio_sample(vid_id)
+        else:
+            aud_sample = None
+
         for ind in indices:
-            frames.extend(self._read_frames(vid_record, ind, vid_id, modality))
+            frames.extend(
+                self._read_frames(vid_record, ind, vid_id, modality, aud_sample)
+            )
+            # if modality == "RGB":
+            #     rgb_file_name = "img_{:010d}.{}".format(ind, self.vis_file_ext)
+            #     rgb_path = os.path.join(self.root_dir, self.rgb_prefix, vid_id)
+            #     img = cv2.imread(os.path.join(rgb_path, rgb_file_name))
+            #     # Convert to rgb
+            #     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            #     frames.extend([img])
+            # elif modality == "Flow":
+            #     frames.extend(self._read_flow_frames(ind, vid_id))
+            # elif modality == "Audio":
+            #     spec = self._get_audio_segment(vid_record, ind, aud_sample)
+            #     frames.extend([spec])
+
         return frames
 
-    def _read_frames(self, vid_record, frame_idx, vid_id, modality):
+    def _read_frames(self, vid_record, frame_idx, vid_id, modality, aud_sample=None):
         """
         Helper function to get read images or get spectrogram for an index
 
@@ -240,7 +260,7 @@ class Video_Dataset(Dataset):
         elif modality == "Flow":
             return self._read_flow_frames(frame_idx, vid_id)
         elif modality == "Audio":
-            spec = self._get_audio(vid_record, frame_idx, vid_id)
+            spec = self._get_audio_segment(vid_record, frame_idx, aud_sample)
             return [spec]
 
     def _read_flow_frames(self, frame_idx, vid_id):
@@ -288,40 +308,21 @@ class Video_Dataset(Dataset):
             img_y = cv2.imread(os.path.join(flow_path, flow_file_name[1]), 0)
             return [img_x, img_y]
 
-    def _get_audio(self, vid_record, frame_idx, vid_id):
+    def _read_audio_sample(self, vid_id):
         """
         Helper function to read audio data from raw or numpy files
 
         Args
         ----------
-        vid_record: EpicVideoRecord object
-            Object of EpicVideoRecord class
-        frame_idx: int
-            Index of the frame to be read
         vid_id: str
             Untrimmed Video id
         
         Returns
         ----------
-        spec: np.ndarray
-            Array of audio spectrogram
+        sample: np.ndarray
+            Array of 1D audio data
 
         """
-        min_len = int(self.cfg.DATA.AUDIO_LENGTH * self.cfg.DATA.SAMPLING_RATE)
-
-        # Find the starting temporal offset of the audio sample
-        start_sec = round(
-            (frame_idx / self.cfg.DATA.VID_FPS) - (self.cfg.DATA.AUDIO_LENGTH / 2), 3
-        )
-        if start_sec + self.cfg.DATA.AUDIO_LENGTH > round(
-            vid_record.end_frame["Audio"] / self.cfg.DATA.VID_FPS, 3
-        ):
-            start_sec = (
-                round(vid_record.end_frame["Audio"] / self.cfg.DATA.VID_FPS, 3)
-                - self.cfg.DATA.AUDIO_LENGTH
-            )
-        # Find the starting frame of the audio sample array
-        start_frame = int(max(0, start_sec * self.cfg.DATA.SAMPLING_RATE))
 
         # Read untrimmed audio sample
         if self.read_audio_pickle:
@@ -353,11 +354,49 @@ class Video_Dataset(Dataset):
                     "Failed to read audio sample {} with error {}".format(aud_file, e)
                 )
 
+        return sample
+
+    def _get_audio_segment(self, vid_record, frame_idx, aud_sample):
+        """
+        Helper function to trim sampled audio and return a spectrogram
+
+        Args
+        ----------
+        vid_record: EpicVideoRecord object
+            Object of EpicVideoRecord class
+        frame_idx: int
+            Index of the frame to be read
+        aud_sample: np.ndarray
+            Untrimmed 1D audio sample
+        
+        Returns
+        ----------
+        spec: np.ndarray
+            Array of audio spectrogram
+
+        """
+
+        min_len = int(self.cfg.DATA.AUDIO_LENGTH * self.cfg.DATA.SAMPLING_RATE)
+
+        # Find the starting temporal offset of the audio sample
+        start_sec = round(
+            (frame_idx / self.cfg.DATA.VID_FPS) - (self.cfg.DATA.AUDIO_LENGTH / 2), 3
+        )
+        if start_sec + self.cfg.DATA.AUDIO_LENGTH > round(
+            vid_record.end_frame["Audio"] / self.cfg.DATA.VID_FPS, 3
+        ):
+            start_sec = (
+                round(vid_record.end_frame["Audio"] / self.cfg.DATA.VID_FPS, 3)
+                - self.cfg.DATA.AUDIO_LENGTH
+            )
+        # Find the starting frame of the audio sample array
+        start_frame = int(max(0, start_sec * self.cfg.DATA.SAMPLING_RATE))
+
         # Trim audio sample as per segment boundaries
-        if sample.shape[0] < min_len:
-            sample = np.pad(sample, (0, min_len - sample.shape[0]), mode="constant")
-        if sample.shape[0] >= min_len:
-            sample = sample[start_frame : start_frame + min_len]
+        if aud_sample.shape[0] < min_len:
+            sample = np.pad(aud_sample, (0, min_len - sample.shape[0]), mode="constant")
+        elif aud_sample.shape[0] >= min_len:
+            sample = aud_sample[start_frame : start_frame + min_len]
 
         spec = self._get_spectrogram(sample)
 
