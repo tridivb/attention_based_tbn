@@ -20,6 +20,7 @@ class TBNModel(nn.Module):
     modality: list
         List of input modalities
     """
+
     def __init__(self, cfg, modality):
         super(TBNModel, self).__init__()
 
@@ -47,13 +48,11 @@ class TBNModel(nn.Module):
                 "fusion", Fusion(in_features, 512, dropout=cfg.MODEL.FUSION_DROPOUT)
             )
             self.add_module(
-                "classifier",
-                Classifier(self.num_classes, 512),
+                "classifier", Classifier(self.num_classes, 512),
             )
         else:
             self.add_module(
-                "classifier",
-                Classifier(self.num_classes, in_features),
+                "classifier", Classifier(self.num_classes, in_features),
             )
 
     def _create_base_model(self, modality):
@@ -109,8 +108,14 @@ class TBNModel(nn.Module):
             for param in getattr(self, "Base_{}".format(modality)).parameters():
                 param.requires_grad = False
         elif freeze_mode == "partialbn":
-            print("Freezing the batchnorms of Base Model {} except first layer.".format(modality))
-            for mod_no, mod in enumerate(getattr(self, "Base_{}".format(modality)).children()):
+            print(
+                "Freezing the batchnorms of Base Model {} except first layer.".format(
+                    modality
+                )
+            )
+            for mod_no, mod in enumerate(
+                getattr(self, "Base_{}".format(modality)).children()
+            ):
                 if isinstance(mod, torch.nn.BatchNorm2d) and mod_no > 1:
                     mod.weight.requires_grad = False
                     mod.bias.requires_grad = False
@@ -181,11 +186,12 @@ class TBNModel(nn.Module):
         assert isinstance(target, dict)
         assert isinstance(preds, dict)
 
-        loss = 0
+        loss = {"total": 0}
 
         for key in target.keys():
             labels = target[key]
-            loss += criterion(preds[key], labels)
+            loss[key] = criterion(preds[key], labels)
+            loss["total"] += loss[key]
 
         return loss
 
@@ -194,6 +200,7 @@ class Fusion(nn.Module):
     """
     Fusion layer module
     """
+
     def __init__(self, in_size, out_size, dropout=0):
         super(Fusion, self).__init__()
 
@@ -219,6 +226,7 @@ class Classifier(nn.Module):
     """
     Classifier layer module
     """
+
     def __init__(self, num_classes, in_features):
         super(Classifier, self).__init__()
 

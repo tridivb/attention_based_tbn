@@ -60,7 +60,9 @@ def train(
     dict_to_device = TransferTensorDict(device)
 
     model.train()
-    train_loss = 0
+    train_loss = {"total": 0}
+    for key in cfg.MODEL.NUM_CLASSES.keys():
+        train_loss[key] = 0
     for batch_no, (data, target) in enumerate(data_loader):
         optimizer.zero_grad()
         data, target = dict_to_device(data), dict_to_device(target)
@@ -68,8 +70,9 @@ def train(
         out = model(data)
 
         loss = model.get_loss(criterion, target, out)
-        train_loss += loss.item()
-        loss.backward()
+        for key in train_loss.keys():
+            train_loss[key] += loss[key].item()
+        loss["total"].backward()
 
         if cfg.TRAIN.CLIP_GRAD:
             total_norm = torch.nn.utils.clip_grad_norm_(
@@ -91,7 +94,8 @@ def train(
                 )
             )
 
-    train_loss /= no_batches
+    for key in loss.keys():
+        train_loss[key] = round(train_loss[key] / no_batches, 5)
     return train_loss
 
 
@@ -134,12 +138,13 @@ def validate(
     metric = Metric()
 
     model.eval()
-    val_loss = 0
+    val_loss = {"total": 0}
     val_acc = {}
     confusion_matrix = {}
     for cls, no_cls in cfg.MODEL.NUM_CLASSES.items():
         val_acc[cls] = [0] * (len(cfg.VAL.TOPK))
         confusion_matrix[cls] = torch.zeros((no_cls, no_cls), device=device)
+        val_loss[cls] = 0
 
     with torch.no_grad():
         for data, target, _ in data_loader:
@@ -148,17 +153,19 @@ def validate(
             out = model(data)
 
             loss = model.get_loss(criterion, target, out)
-            val_loss += loss.item()
+            val_loss["total"] += loss["total"].item()
             for cls in val_acc.keys():
                 acc, conf_mat = metric.calculate_metrics(
                     out[cls], target[cls], device, topk=cfg.VAL.TOPK
                 )
                 val_acc[cls] = [x + y for x, y in zip(val_acc[cls], acc)]
                 confusion_matrix[cls] += conf_mat
+                val_loss[cls] += loss[cls].item()
 
-    val_loss /= no_batches
+    val_loss["total"] = round(val_loss["total"] / no_batches, 5)
     for cls in val_acc.keys():
         val_acc[cls] = [round(x / no_batches, 2) for x in val_acc[cls]]
+        val_loss[cls] = round(val_loss[cls] / no_batches, 5)
         if device.type == "cuda":
             confusion_matrix[cls] = confusion_matrix[cls].cpu()
         confusion_matrix[cls] = confusion_matrix[cls].numpy()
@@ -263,9 +270,7 @@ def run_trainer(cfg, logger, modality, writer):
         if m == "RGB":
             train_transforms[m] = torchvision.transforms.Compose(
                 [
-                    MultiScaleCrop(
-                        cfg.DATA.TRAIN_CROP_SIZE, [1, 0.875, 0.75, 0.66]
-                    ),
+                    MultiScaleCrop(cfg.DATA.TRAIN_CROP_SIZE, [1, 0.875, 0.75, 0.66]),
                     RandomHorizontalFlip(prob=0.5),
                     Stack(m),
                     ToTensor(),
@@ -284,9 +289,7 @@ def run_trainer(cfg, logger, modality, writer):
         elif m == "Flow":
             train_transforms[m] = torchvision.transforms.Compose(
                 [
-                    MultiScaleCrop(
-                        cfg.DATA.TRAIN_CROP_SIZE, [1, 0.875, 0.75]
-                    ),
+                    MultiScaleCrop(cfg.DATA.TRAIN_CROP_SIZE, [1, 0.875, 0.75]),
                     RandomHorizontalFlip(prob=0.5),
                     Stack(m),
                     ToTensor(),
@@ -303,8 +306,12 @@ def run_trainer(cfg, logger, modality, writer):
                 ]
             )
         elif m == "Audio":
-            train_transforms[m] = torchvision.transforms.Compose([Stack(m), ToTensor(is_audio=True)])
-            val_transforms[m] = torchvision.transforms.Compose([Stack(m), ToTensor(is_audio=True)])
+            train_transforms[m] = torchvision.transforms.Compose(
+                [Stack(m), ToTensor(is_audio=True)]
+            )
+            val_transforms[m] = torchvision.transforms.Compose(
+                [Stack(m), ToTensor(is_audio=True)]
+            )
 
     logger.info("Creating datasets...")
     train_dataset = Video_Dataset(
@@ -369,7 +376,7 @@ def run_trainer(cfg, logger, modality, writer):
         if lr_scheduler:
             lr_scheduler.step()
 
-        if val_loss < min_val_loss or not cfg.VAL.VAL_ENABLE:
+        if val_loss["total"] < min_val_loss or not cfg.VAL.VAL_ENABLE:
             if cfg.NUM_GPUS > 1:
                 save_checkpoint(
                     model.module,
@@ -394,7 +401,7 @@ def run_trainer(cfg, logger, modality, writer):
                     scheduler=lr_scheduler,
                     filename=os.path.splitext(checkpoint)[0] + "_best.pth",
                 )
-            min_val_loss = val_loss
+            min_val_loss = val_loss["total"]
 
         save_checkpoint(
             model,
@@ -412,7 +419,7 @@ def run_trainer(cfg, logger, modality, writer):
 
         logger.info("----------------------------------------------------------")
         logger.info(
-            "Epoch: [{}/{}] || Train_loss: {:.5f} || Val_Loss: {:.5f}".format(
+            "Epoch: [{}/{}] || Train_loss: {} || Val_Loss: {}".format(
                 epoch + 1, epochs, train_loss, val_loss
             )
         )
@@ -427,8 +434,9 @@ def run_trainer(cfg, logger, modality, writer):
         logger.info(json.dumps(val_acc, indent=2))
         logger.info("----------------------------------------------------------")
 
-        plotter.plot_scalar(train_loss, epoch, "train/loss")
-        plotter.plot_scalar(val_loss, epoch, "val/loss")
+        for k in train_loss.keys():
+            plotter.plot_scalar(train_loss[k], epoch, "train/{}_loss".format(k))
+            plotter.plot_scalar(val_loss[k], epoch, "val/{}_loss".format(k))
         for cls, acc in val_acc.items():
             for k, v in enumerate(acc):
                 plotter.plot_scalar(

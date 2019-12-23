@@ -58,7 +58,7 @@ def test(
     metric = Metric()
 
     model.eval()
-    test_loss = 0
+    test_loss = {"total": 0}
     test_acc = {}
     confusion_matrix = {}
     results = {}
@@ -67,6 +67,7 @@ def test(
         test_acc[cls] = [0] * (len(cfg.VAL.TOPK))
         confusion_matrix[cls] = torch.zeros((no_cls, no_cls), device=device)
         results[cls] = []
+        test_loss[cls] = 0
 
     with torch.no_grad():
         for data, target, action_id in tqdm(data_loader):
@@ -81,13 +82,14 @@ def test(
 
             if isinstance(target, dict):
                 loss = model.get_loss(criterion, target, out)
-                test_loss += loss.item()
+                test_loss["total"] += loss["total"].item()
                 for cls in test_acc.keys():
                     acc, conf_mat = metric.calculate_metrics(
                         out[cls], target[cls], device, topk=cfg.VAL.TOPK
                     )
                     test_acc[cls] = [x + y for x, y in zip(test_acc[cls], acc)]
                     confusion_matrix[cls] += conf_mat
+                    test_loss[cls] += loss[cls].item()
 
             results["action_id"].extend([action_id.numpy()])
             for cls in out.keys():
@@ -95,10 +97,11 @@ def test(
                     [out[cls].cpu().numpy() if out[cls].is_cuda else out[cls].numpy()]
                 )
 
-    if test_loss > 0:
-        test_loss /= no_batches
+    if test_loss["total"] > 0:
+        test_loss["total"] = round(test_loss["total"] / no_batches, 5)
         for cls in test_acc.keys():
             test_acc[cls] = [round(x / no_batches, 2) for x in test_acc[cls]]
+            test_loss[cls] = round(test_loss[cls] / no_batches, 5)
             if device.type == "cuda":
                 confusion_matrix[cls] = confusion_matrix[cls].cpu()
             confusion_matrix[cls] = confusion_matrix[cls].numpy()
@@ -186,7 +189,9 @@ def run_tester(cfg, logger, modality):
                 ]
             )
         elif m == "Audio":
-            test_transforms[m] = torchvision.transforms.Compose([Stack(m), ToTensor(is_audio=True)])
+            test_transforms[m] = torchvision.transforms.Compose(
+                [Stack(m), ToTensor(is_audio=True)]
+            )
 
     logger.info("Creating the dataset...")
     test_dataset = Video_Dataset(
@@ -216,7 +221,7 @@ def run_tester(cfg, logger, modality):
 
     if isinstance(results, tuple):
         logger.info("----------------------------------------------------------")
-        logger.info("Test_Loss: {:5f}".format(results[0]))
+        logger.info("Test_Loss: {}".format(results[0]))
         logger.info("----------------------------------------------------------")
         logger.info("Accuracy Top {}:".format(cfg.VAL.TOPK))
         logger.info(json.dumps(results[1], indent=2))
