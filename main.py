@@ -1,18 +1,15 @@
 #!/usr/bin/env python
 
 import argparse
-import numpy as np
-import os
-import time
 import torch
 from omegaconf import OmegaConf
-from datetime import datetime
 
 from tools.train import run_trainer
 from tools.test import run_tester
 from utils.log import setup_log
 from utils.misc import get_modality
 
+torch.multiprocessing.set_sharing_strategy("file_system")
 
 def parse_args():
     parser = argparse.ArgumentParser(description="main.py")

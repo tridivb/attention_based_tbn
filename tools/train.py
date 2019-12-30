@@ -70,7 +70,7 @@ def train(
 
         out = model(data)
 
-        loss = model.get_loss(criterion, target, out)
+        loss, _ = model.get_loss(criterion, target, out)
         for key in train_loss.keys():
             train_loss[key] += loss[key].item()
         loss["total"].backward()
@@ -129,23 +129,16 @@ def validate(
         Overall validation loss
     val_acc: dict
         Accuracy of each type of class
-    confusion_matrix: np.ndarray
+    confusion_matrix: Tensor
         Array of the confusion matrix over the validation set
 
     """
 
     no_batches = len(data_loader.dataset) // data_loader.batch_size
     dict_to_device = TransferTensorDict(device)
-    metric = Metric()
+    metric = Metric(cfg, no_batches, device)
 
     model.eval()
-    val_loss = {"total": 0}
-    val_acc = {}
-    confusion_matrix = {}
-    for cls, no_cls in cfg.MODEL.NUM_CLASSES.items():
-        val_acc[cls] = [0] * (len(cfg.VAL.TOPK))
-        confusion_matrix[cls] = torch.zeros((no_cls, no_cls), device=device)
-        val_loss[cls] = 0
 
     with torch.no_grad():
         for data, target, _ in tqdm(data_loader):
@@ -153,29 +146,12 @@ def validate(
 
             out = model(data)
 
-            loss = model.get_loss(criterion, target, out)
-            val_loss["total"] += loss["total"].item()
-            for cls in val_acc.keys():
-                acc, conf_mat = metric.calculate_metrics(
-                    out[cls], target[cls], device, topk=cfg.VAL.TOPK
-                )
-                val_acc[cls] = [x + y for x, y in zip(val_acc[cls], acc)]
-                confusion_matrix[cls] += conf_mat
-                val_loss[cls] += loss[cls].item()
+            loss, batch_size = model.get_loss(criterion, target, out)
+            metric.set_metrics(out, target, batch_size, loss)
 
-    val_loss["total"] = round(val_loss["total"] / no_batches, 5)
-    for cls in val_acc.keys():
-        val_acc[cls] = [round(x / no_batches, 2) for x in val_acc[cls]]
-        val_loss[cls] = round(val_loss[cls] / no_batches, 5)
-        if device.type == "cuda":
-            confusion_matrix[cls] = confusion_matrix[cls].cpu()
-        confusion_matrix[cls] = confusion_matrix[cls].numpy()
+    val_loss, val_acc, conf_mat = metric.get_metrics()
 
-    return (
-        val_loss,
-        val_acc,
-        confusion_matrix,
-    )
+    return (val_loss, val_acc, conf_mat)
 
 
 def run_trainer(cfg, logger, modality, writer):

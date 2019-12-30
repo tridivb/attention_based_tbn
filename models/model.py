@@ -182,6 +182,13 @@ class TBNModel(nn.Module):
         preds: dict
             Dictionary of predicted values for each class type
 
+        Returns:
+        ----------
+        loss: dict
+            Dictionary of losses for each class
+        batch_size: int
+            Current batch size
+
         """
         assert isinstance(target, dict)
         assert isinstance(preds, dict)
@@ -190,10 +197,11 @@ class TBNModel(nn.Module):
 
         for key in target.keys():
             labels = target[key]
+            batch_size = target[key].shape[0]
             loss[key] = criterion(preds[key], labels)
             loss["total"] += loss[key]
 
-        return loss
+        return loss, batch_size
 
 
 class Fusion(nn.Module):

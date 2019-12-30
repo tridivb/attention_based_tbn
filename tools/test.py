@@ -16,7 +16,6 @@ from utils.misc import get_time_diff, save_scores
 from utils.metric import Metric
 from dataset.transform import *
 
-
 def test(
     cfg, model, data_loader, criterion, modality, logger, device=torch.device("cuda")
 ):
@@ -42,32 +41,27 @@ def test(
 
     Returns
     ----------
-    test_loss,: float
-        Overall validation loss
+    test_loss: dict
+        Dictionary of losses for each class and sum of all losses
     test_acc: dict
         Accuracy of each type of class
-    confusion_matrix: np.ndarray
-        Array of the confusion matrix over the validation set
-    results: dict
+    confusion_matrix: Tensor
+        Array of the confusion matrix over the test set
+    output: dict
         Dictionary of model output over the test set
 
     """
 
     no_batches = round(len(data_loader.dataset) / data_loader.batch_size)
     dict_to_device = TransferTensorDict(device)
-    metric = Metric()
+    metric = Metric(cfg, no_batches, device)
 
     model.eval()
-    test_loss = {"total": 0}
-    test_acc = {}
-    confusion_matrix = {}
-    results = {}
-    results["action_id"] = []
-    for cls, no_cls in cfg.MODEL.NUM_CLASSES.items():
-        test_acc[cls] = [0] * (len(cfg.VAL.TOPK))
-        confusion_matrix[cls] = torch.zeros((no_cls, no_cls), device=device)
-        results[cls] = []
-        test_loss[cls] = 0
+    if cfg.TEST.SAVE_RESULTS:
+        output = {}
+        output["action_id"] = []
+        for key in cfg.MODEL.NUM_CLASSES.keys():
+            output[key] = []
 
     with torch.no_grad():
         for data, target, action_id in tqdm(data_loader):
@@ -75,39 +69,23 @@ def test(
 
             if isinstance(target, dict):
                 target = dict_to_device(target)
-            else:
-                target = target.to(device)
 
             out = model(data)
 
             if isinstance(target, dict):
-                loss = model.get_loss(criterion, target, out)
-                test_loss["total"] += loss["total"].item()
-                for cls in test_acc.keys():
-                    acc, conf_mat = metric.calculate_metrics(
-                        out[cls], target[cls], device, topk=cfg.VAL.TOPK
-                    )
-                    test_acc[cls] = [x + y for x, y in zip(test_acc[cls], acc)]
-                    confusion_matrix[cls] += conf_mat
-                    test_loss[cls] += loss[cls].item()
+                loss, batch_size = model.get_loss(criterion, target, out)
+                metric.set_metrics(out, target, batch_size, loss)
+            if cfg.TEST.SAVE_RESULTS:
+                output["action_id"].extend([action_id])
+                for key in out.keys():
+                    output[key].extend([out[key]])
 
-            results["action_id"].extend([action_id.numpy()])
-            for cls in out.keys():
-                results[cls].extend(
-                    [out[cls].cpu().numpy() if out[cls].is_cuda else out[cls].numpy()]
-                )
+    test_loss, test_acc, conf_mat = metric.get_metrics()
 
-    if test_loss["total"] > 0:
-        test_loss["total"] = round(test_loss["total"] / no_batches, 5)
-        for cls in test_acc.keys():
-            test_acc[cls] = [round(x / no_batches, 2) for x in test_acc[cls]]
-            test_loss[cls] = round(test_loss[cls] / no_batches, 5)
-            if device.type == "cuda":
-                confusion_matrix[cls] = confusion_matrix[cls].cpu()
-            confusion_matrix[cls] = confusion_matrix[cls].numpy()
-        return test_loss, test_acc, confusion_matrix, results
+    if cfg.TEST.SAVE_RESULTS:
+        return (test_loss, test_acc, conf_mat, output)
     else:
-        return results
+        return (test_loss, test_acc, conf_mat)
 
 
 def run_tester(cfg, logger, modality):
@@ -219,24 +197,21 @@ def run_tester(cfg, logger, modality):
 
     results = test(cfg, model, test_loader, criterion, modality, logger, device)
 
-    if isinstance(results, tuple):
-        logger.info("----------------------------------------------------------")
-        logger.info("Test_Loss: {}".format(results[0]))
-        logger.info("----------------------------------------------------------")
-        logger.info("Accuracy Top {}:".format(cfg.VAL.TOPK))
-        logger.info(json.dumps(results[1], indent=2))
-        logger.info("----------------------------------------------------------")
-        results_dict = results[3]
-    else:
-        results_dict = results
+    logger.info("----------------------------------------------------------")
+    logger.info("Test_Loss: {}".format(results[0]))
+    logger.info("----------------------------------------------------------")
+    logger.info("Accuracy Top {}:".format(cfg.VAL.TOPK))
+    logger.info(json.dumps(results[1], indent=2))
+    logger.info("----------------------------------------------------------")
 
     if cfg.TEST.SAVE_RESULTS:
+        output_dict = results[3]
         if cfg.DATA.OUT_DIR:
             out_file = os.path.join(cfg.DATA.OUT_DIR, cfg.TEST.RESULTS_FILE)
         else:
             out_file = os.path.join("./", cfg.TEST.RESULTS_FILE)
         try:
-            save_scores(results_dict, out_file)
+            save_scores(output_dict, out_file)
             logger.info("Saved results to {}".format(out_file))
         except Exception as e:
             logger.exception(e)

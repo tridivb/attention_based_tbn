@@ -107,7 +107,7 @@ class Video_Dataset(Dataset):
         ----------
         data: dict
             Dictionary of frames for each modality
-        target: dict
+        target: dict/int
             Dictionary of target labels for each class
         action_id: str
             Video id of the untrimmed video for the trimmed action segment

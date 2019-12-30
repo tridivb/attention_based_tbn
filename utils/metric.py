@@ -4,12 +4,41 @@ import torch
 class Metric(object):
     """
     Model evaluation metrics
+    
+    Args
+    ----------
+    cfg: dict
+        Dictionary of config parameters
+    no_batches: int
+        Number of batches
+    device: torch.device
+        Torch device to dump tensors on
     """
-    def __init__(self):
-        super(Metric, self).__init__()
-        pass
 
-    def calculate_metrics(self, out, target, device, topk=[1,]):
+    def __init__(self, cfg, no_batches, device=torch.device("cuda")):
+        super(Metric, self).__init__()
+        self.cfg = cfg
+        self.topk = self.cfg.VAL.TOPK
+        self.device = device
+        self.no_batches = no_batches
+        self.multi_class = True if len(self.cfg.MODEL.NUM_CLASSES.keys()) > 1 else False
+
+        self.loss = {}
+        self.accuracy = {}
+        self.conf_mat = {}
+        self.loss = {}
+
+        for key, no_cls in self.cfg.MODEL.NUM_CLASSES.items():
+            self.accuracy[key] = [0] * (len(cfg.VAL.TOPK))
+            self.conf_mat[key] = torch.zeros((no_cls, no_cls), device=device)
+            self.loss[key] = 0
+
+        if self.multi_class:
+            self.loss["total"] = 0
+            self.accuracy["all_class"] = [0] * (len(cfg.VAL.TOPK))
+            self.loss["total"] = 0
+
+    def set_metrics(self, out, target, batch_size, batch_loss):
         """
         Helper function to calculate accuracy and confusion matrix
         
@@ -25,8 +54,74 @@ class Metric(object):
             List of top-k accuracies
         """
 
+        maxk = max(self.topk)
+        correct = {}
+        if self.multi_class:
+            correct["all_class"] = torch.zeros((maxk, batch_size), device=self.device)
+        for key in out.keys():
+            corr, cm = self._get_correct_score(
+                out[key], target[key], self.topk, self.device
+            )
+            self.conf_mat[key] += cm
+            correct[key] = corr
+            if self.multi_class:
+                correct["all_class"] += corr
+            self.loss[key] += batch_loss[key].item()
+
+        if self.multi_class:
+            self.loss["total"] += batch_loss["total"].item()
+
+        for key in self.accuracy.keys():
+            if key == "all_class":
+                no_classes = len(self.cfg.MODEL.NUM_CLASSES.keys())
+                correct["all_class"][correct["all_class"] < no_classes] = 0
+                correct["all_class"][correct["all_class"] == no_classes] = 1
+                
+            for i, k in enumerate(self.topk):
+                correct_k = correct[key][:k].view(-1).to(torch.float32).sum()
+                acc = float(correct_k.mul_(100.0 / batch_size))
+                self.accuracy[key][i] += acc
+
+    def get_metrics(self):
+        """
+        Helper function to calculate average accuracy and loss
+
+        Returns
+        ----------
+        loss: dict
+            Dictionary of losses for each class and sum of all losses
+        acc: dict
+            Accuracy of each type of class
+        confusion_matrix: Tensor
+            Tensor of the confusion matrix
+        """
+
+        for key in self.accuracy.keys():
+            self.accuracy[key] = [
+                round(x / self.no_batches, 2) for x in self.accuracy[key]
+            ]
+
+        for key in self.loss.keys():
+            self.loss[key] = round(self.loss[key] / self.no_batches, 5)
+
+        return self.loss, self.accuracy, self.conf_mat
+
+    @staticmethod
+    def _get_correct_score(out, target, topk, device):
+        """
+        Helper function to calculate confusion matrix and correctness scores
+        
+        Args
+        ----------
+        out: tensor
+            Output from forward pass of model
+        target: tensor
+            Target labels
+        device: torch.device
+            Torch device to dump tensors on
+        """
+
         maxk = max(topk)
-        batch_size = out.size(0)
         conf_mat = torch.zeros((out.size(1), out.size(1)), device=device)
 
         _, preds = out.topk(maxk, 1, True, True)
@@ -36,39 +131,4 @@ class Metric(object):
         for i1, i2 in zip(target.view(-1), preds[0, :].view(-1)):
             conf_mat[i1, i2] += 1
 
-        acc = []
-        for k in topk:
-            correct_k = correct[:k].view(-1).to(torch.float32).sum(0)
-            acc.append(float(correct_k.mul_(100.0 / batch_size)))
-
-        # precision, recall = self.get_precision_recall(conf_mat)
-
-        return acc, conf_mat
-
-    # @staticmethod
-    # def get_multi_class_accuracy(out, target):
-    #     o = []
-    #     t = []
-    #     for key in out.keys():
-    #         o.extend([out[key]])
-    #         t.extend([target[key]])
-
-    #     o = torch.cat(o, dim=1)
-    #     t = torch.cat(t, dim=1)
-
-    # @staticmethod
-    # def get_precision_recall(conf_mat):
-    #     precision = 0
-    #     recall = 0
-
-    #     tp = conf_mat[1:, 1:].diag().sum().item()
-    #     fn = conf_mat[1:, 0].sum().item()
-    #     fp = conf_mat[1:, 1:].sum().item() - tp
-
-    #     if tp + fp > 0:
-    #         precision = 100 * tp / (tp + fp)
-
-    #     if tp + fn > 0:
-    #         recall = 100 * tp / (tp + fn)
-
-    #     return precision, recall
+        return correct, conf_mat

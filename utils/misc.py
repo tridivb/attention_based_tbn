@@ -123,20 +123,20 @@ def save_scores(scores, file_name):
     out_result["challenge"] = "action_recognition"
 
     for key in scores.keys():
-        scores[key] = np.concatenate(scores[key], axis=0)
+        scores[key] = torch.cat(scores[key], dim=0)
 
     results = {}
 
     no_of_ids = scores["action_id"].shape[0]
 
     for idx in range(no_of_ids):
-        a_id = str(scores["action_id"][idx])
+        a_id = str(scores["action_id"][idx].item())
         results[a_id] = {}
-        for cls in scores.keys():
-            score = torch.nn.functional.softmax(scores[cls], dim=1)
-            if cls != "action_id":
-                results[a_id][cls] = {
-                    str(id): s.item() for id, s in enumerate(score)
+        for key in scores.keys():
+            if key != "action_id":
+                score = torch.nn.functional.softmax(scores[key], dim=1)
+                results[a_id][key] = {
+                    str(id): s.item() for id, s in enumerate(score[idx])
                 }
 
     out_result["results"] = results
