@@ -327,6 +327,7 @@ def run_trainer(cfg, logger, modality, writer):
 
     best_acc = np.NINF
     plotter = Plotter(writer)
+    plotter.add_config(cfg)
 
     logger.info("Training in progress...")
     start_time = time.time()

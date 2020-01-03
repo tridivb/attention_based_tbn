@@ -2,6 +2,7 @@ import torch
 import torchvision
 import numpy as np
 import time
+from omegaconf.dictconfig import DictConfig
 
 
 class Plotter(object):
@@ -22,15 +23,13 @@ class Plotter(object):
 
         self.writer.add_scalar(plot_name, val, epoch)
 
-    # def plot_dict(self, dict_input, epoch, plot_header):
-    #     assert isinstance(dict_input, dict)
-    #     assert isinstance(epoch, (float, int))
-    #     assert isinstance(plot_header, str)
-
-    #     for k, val in dict_input.items():
-    #         if isinstance(val, list):
-    #             for v in val:
-    #                 plot_name = "{} {}_{}".format(k, plot_header, )
-    #                 self.writer.add_scalar(plot_name, v, epoch)
-    #         elif isinstance(val, (float, int)):
-    #             self.writer.add_scalar(plot_header, val, epoch)
+    def add_config(self, cfg):
+        config_summary = ""
+        for k, d in cfg.items():
+            if isinstance(d, DictConfig):
+                config_summary += k + "<br/>"
+                for key, val in d.items():
+                    config_summary += "&nbsp;&nbsp;&nbsp;&nbsp;" + key + ": " + str(val) + "<br/>"
+            else:
+                config_summary += k + ": " + str(d) + "<br/>"
+        self.writer.add_text("Config", config_summary)
