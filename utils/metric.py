@@ -54,10 +54,9 @@ class Metric(object):
             List of top-k accuracies
         """
 
-        maxk = max(self.topk)
         correct = {}
         if self.multi_class:
-            correct["all_class"] = torch.zeros((maxk, batch_size), device=self.device)
+            correct["all_class"] = []
         for key in out.keys():
             corr, cm = self._get_correct_score(
                 out[key], target[key], self.topk, self.device
@@ -65,21 +64,25 @@ class Metric(object):
             self.conf_mat[key] += cm
             correct[key] = corr
             if self.multi_class:
-                correct["all_class"] += corr
+                correct["all_class"].extend([corr])
             self.loss[key] += batch_loss[key].item()
 
         if self.multi_class:
             self.loss["total"] += batch_loss["total"].item()
 
+
         for key in self.accuracy.keys():
-            if key == "all_class":
-                no_classes = len(self.cfg.MODEL.NUM_CLASSES.keys())
-                correct["all_class"][correct["all_class"] < no_classes] = 0
-                correct["all_class"][correct["all_class"] == no_classes] = 1
-                
             for i, k in enumerate(self.topk):
-                correct_k = correct[key][:k].view(-1).to(torch.float32).sum()
-                acc = float(correct_k.mul_(100.0 / batch_size))
+                if key == "all_class":
+                    c = correct[key][0][:k].sum(0)
+                    for c2 in correct[key][1:]:
+                        # Check where predictions in both classes are correct or 1
+                        c = c * c2[:k].sum(0)
+                    c = c.to(torch.float32).sum()
+                    acc = float(c.mul_(100.0 / batch_size))
+                else:
+                    correct_k = correct[key][:k].view(-1).to(torch.float32).sum()
+                    acc = float(correct_k.mul_(100.0 / batch_size))
                 self.accuracy[key][i] += acc
 
     def get_metrics(self):
@@ -124,7 +127,7 @@ class Metric(object):
         maxk = max(topk)
         conf_mat = torch.zeros((out.size(1), out.size(1)), device=device)
 
-        _, preds = out.topk(maxk, 1, True, True)
+        _, preds = out.topk(maxk, 1, largest=True, sorted=True)
         preds = preds.t()
         correct = preds.eq(target.view(1, -1).expand_as(preds))
 

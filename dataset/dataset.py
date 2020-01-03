@@ -20,7 +20,7 @@ class Video_Dataset(Dataset):
 
     Args
     ----------
-    cfg: Dict
+    cfg: OmegaConf dict
         Dictonary of config parameters
     vid_list: list
         List of videos to process
@@ -350,7 +350,7 @@ class Video_Dataset(Dataset):
                     aud_file, sr=self.cfg.DATA.SAMPLING_RATE, mono=True,
                 )
             except Exception as e:
-                print(
+                raise Exception(
                     "Failed to read audio sample {} with error {}".format(aud_file, e)
                 )
 
@@ -365,7 +365,7 @@ class Video_Dataset(Dataset):
         vid_record: EpicVideoRecord object
             Object of EpicVideoRecord class
         frame_idx: int
-            Index of the frame to be read
+            Center Index of the temporal audio window to be read
         aud_sample: np.ndarray
             Untrimmed 1D audio sample
         
@@ -377,26 +377,17 @@ class Video_Dataset(Dataset):
         """
 
         min_len = int(self.cfg.DATA.AUDIO_LENGTH * self.cfg.DATA.SAMPLING_RATE)
+        max_len = aud_sample.shape[0]
 
         # Find the starting temporal offset of the audio sample
-        start_sec = round(
-            (frame_idx / self.cfg.DATA.VID_FPS) - (self.cfg.DATA.AUDIO_LENGTH / 2), 3
-        )
-        if start_sec + self.cfg.DATA.AUDIO_LENGTH > round(
-            vid_record.end_frame["Audio"] / self.cfg.DATA.VID_FPS, 3
-        ):
-            start_sec = (
-                round(vid_record.end_frame["Audio"] / self.cfg.DATA.VID_FPS, 3)
-                - self.cfg.DATA.AUDIO_LENGTH
-            )
+        start_sec = float(frame_idx / self.cfg.DATA.VID_FPS) - (self.cfg.DATA.AUDIO_LENGTH / 2)
         # Find the starting frame of the audio sample array
         start_frame = int(max(0, start_sec * self.cfg.DATA.SAMPLING_RATE))
+        if  start_frame + min_len > max_len:
+            start_frame = max_len - min_len
 
-        # Trim audio sample as per segment boundaries
-        if aud_sample.shape[0] < min_len:
-            sample = np.pad(aud_sample, (0, min_len - sample.shape[0]), mode="constant")
-        elif aud_sample.shape[0] >= min_len:
-            sample = aud_sample[start_frame : start_frame + min_len]
+
+        sample = aud_sample[start_frame : start_frame + min_len]
 
         spec = self._get_spectrogram(sample)
 

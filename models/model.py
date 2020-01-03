@@ -217,6 +217,8 @@ class Fusion(nn.Module):
         self.dropout = dropout
 
         self.fusion_layer = nn.Sequential(nn.Linear(in_size, out_size), nn.ReLU())
+        torch.nn.init.normal_(self.fusion_layer.weight, 0, 1e-3)
+        torch.nn.init.constant_(self.fusion_layer.bias, 0)
 
         if self.dropout > 0:
             self.dropout_layer = nn.Dropout(p=self.dropout)
@@ -242,6 +244,8 @@ class Classifier(nn.Module):
 
         for cls in num_classes.keys():
             self.add_module(cls, nn.Linear(in_features, self.num_classes[cls]))
+            torch.nn.init.normal_(getattr(self, cls).weight, 0, 1e-3)
+            torch.nn.init.constant_(getattr(self, cls).bias, 0)
 
     def forward(self, input):
         out = {}

@@ -325,7 +325,7 @@ def run_trainer(cfg, logger, modality, writer):
     logger.info("Done.")
     logger.info("----------------------------------------------------------")
 
-    min_val_loss = np.inf
+    best_acc = np.NINF
     plotter = Plotter(writer)
 
     logger.info("Training in progress...")
@@ -353,7 +353,7 @@ def run_trainer(cfg, logger, modality, writer):
         if lr_scheduler:
             lr_scheduler.step()
 
-        if val_loss["total"] < min_val_loss or not cfg.VAL.VAL_ENABLE:
+        if cfg.VAL.VAL_ENABLE and val_acc["all_class"][0] > best_acc:
             if cfg.NUM_GPUS > 1:
                 save_checkpoint(
                     model.module,
@@ -378,7 +378,7 @@ def run_trainer(cfg, logger, modality, writer):
                     scheduler=lr_scheduler,
                     filename=os.path.splitext(checkpoint)[0] + "_best.pth",
                 )
-            min_val_loss = val_loss["total"]
+            best_acc = val_acc["all_class"][0]
 
         save_checkpoint(
             model,
