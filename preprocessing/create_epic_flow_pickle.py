@@ -18,14 +18,12 @@ def parse_args():
     )
     parser.add_argument(
         "annotation_file",
-        help="list of annotations",
-        default="<path_to_epic_kitchens>/annotations/EPIC_train_action_labels.csv",
+        help="<path_to_epic_kitchens>/annotations/<annotation_file>.csv",
         type=str,
     )
     parser.add_argument(
         "root_dir",
-        help="root dir to epic kitchens",
-        default="<path_to_epic_kitchens>/EPIC_KITCHENS_2018/frames_rgb_flow/flow/<train or test>",
+        help="<path_to_epic_kitchens>/EPIC_KITCHENS_2018/frames_rgb_flow/flow/<train or test>",
         type=str,
     )
     parser.add_argument(

@@ -80,7 +80,8 @@ class Video_Dataset(Dataset):
             self.annotations = pd.read_csv(annotation_file)
         elif annotation_file.endswith("pkl"):
             self.annotations = pd.read_pickle(annotation_file)
-        self.annotations = self.annotations.query("video_id in @vid_list")
+        if vid_list:
+            self.annotations = self.annotations.query("video_id in @vid_list")
 
     def __len__(self):
         """

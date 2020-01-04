@@ -1,6 +1,7 @@
 import torch
 import json
 import numpy as np
+import os
 
 
 def get_modality(cfg):
@@ -119,11 +120,13 @@ def save_scores(scores, file_name):
     """
 
     out_result = {}
-    out_result["version"] = 0.1
+    out_result["version"] = "0.1"
     out_result["challenge"] = "action_recognition"
 
     for key in scores.keys():
         scores[key] = torch.cat(scores[key], dim=0)
+        if key != "action_id":
+            scores[key] = torch.nn.functional.softmax(scores[key], dim=1)
 
     results = {}
 
@@ -134,12 +137,13 @@ def save_scores(scores, file_name):
         results[a_id] = {}
         for key in scores.keys():
             if key != "action_id":
-                score = torch.nn.functional.softmax(scores[key], dim=1)
                 results[a_id][key] = {
-                    str(id): s.item() for id, s in enumerate(score[idx])
+                    str(id): s.item() for id, s in enumerate(scores[key][idx])
                 }
 
     out_result["results"] = results
+
+    os.makedirs(os.path.split(file_name)[0], exist_ok=True)
 
     with open(file_name, "w") as f:
         json.dump(out_result, f, indent=4)

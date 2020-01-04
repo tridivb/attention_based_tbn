@@ -5,19 +5,19 @@ DATA:
   # Flag to turn on/off RGB
   USE_RGB: True
   # RGB directory prefix. Absolute path will look like DATA_DIR/RGB_DIR_PREFIX
-  RGB_DIR_PREFIX: "symlinks"
+  RGB_DIR_PREFIX: "<rgb/prefix>"
   # Flag to turn on/off Flow
   USE_FLOW: True
   # Flag to turn on/off reading Flow data from pickle files. Pickled file can speedup data loading
   READ_FLOW_PICKLE: True
   # RGB directory prefix. Absolute path will look like DATA_DIR/FLOW_DIR_PREFIX
-  FLOW_DIR_PREFIX: "flow_pickle"
+  FLOW_DIR_PREFIX: "<flow/prefix>"
   # Flag to turn on/off Flow
   USE_AUDIO: True
   # Flag to turn on/off reading Audio data from pickle files. Pickled file can speedup data loading
   READ_AUDIO_PICKLE: True
   # RGB directory prefix. Absolute path will look like DATA_DIR/AUDIO_DIR_PREFIX
-  AUDIO_DIR_PREFIX: "audio_pickle"
+  AUDIO_DIR_PREFIX: "<audio/prefix>"
   # Input video fps
   VID_FPS: 60
   OUT_DIR: "/path/to/output/directory/"
@@ -107,7 +107,8 @@ VAL:
 TEST:
   # Flag to turn on/off testing
   TEST_ENABLE: False
-  ANNOTATION_FILE: "/path/to/test/annotation/file"
+  # For testing, multiple annotation files can be provided like ["file1", "file2", ...]
+  ANNOTATION_FILE: ["/path/to/test/annotation/file"]
   # Leave the vid list blank if you want to process all the annotations for testing. 
   # If you need a select few, use a list like in validation
   VID_LIST: ""
@@ -119,8 +120,10 @@ TEST:
   NUM_SEGMENTS: 25
   # Flag to turn on/off saving results to a json file
   SAVE_RESULTS: False
-  # Output json file to save results to. File will be saved under OUT_DIR
-  RESULTS_FILE: "seen.json"
+  # Output json file to save results to. File will be saved under OUT_DIR. 
+  # The number of results file must be equal to the number of files provided in TEST.ANNOTATION above
+  # File names can also include subdirectories eg. "rgb/results.json"
+  RESULTS_FILE: ["<file_name>.json"]
   # Pretrained weights to load for Testing. Either the train or test PRE_TRAINED have to be set for testing to be proceed.
   PRE_TRAINED: ""
 # Misc

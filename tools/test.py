@@ -16,6 +16,7 @@ from utils.misc import get_time_diff, save_scores
 from utils.metric import Metric
 from dataset.transform import *
 
+
 def test(
     cfg, model, data_loader, criterion, modality, logger, device=torch.device("cuda")
 ):
@@ -130,20 +131,6 @@ def run_tester(cfg, logger, modality):
     logger.info("Done.")
     logger.info("----------------------------------------------------------")
 
-    logger.info("Reading list of test videos...")
-    if cfg.TEST.VID_LIST:
-        with open(cfg.TEST.VID_LIST) as f:
-            test_list = [x.strip() for x in f.readlines() if len(x.strip()) > 0]
-    else:
-        if cfg.TEST.ANNOTATION_FILE.endswith("csv"):
-            df = pd.read_csv(cfg.TEST.ANNOTATION_FILE)
-        elif cfg.TEST.ANNOTATION_FILE.endswith("pkl"):
-            df = pd.read_pickle(cfg.TEST.ANNOTATION_FILE)
-        test_list = df["video_id"].unique()
-
-    logger.info("Done.")
-    logger.info("----------------------------------------------------------")
-
     test_transforms = {}
     for m in modality:
         if m == "RGB":
@@ -170,51 +157,69 @@ def run_tester(cfg, logger, modality):
             test_transforms[m] = torchvision.transforms.Compose(
                 [Stack(m), ToTensor(is_audio=True)]
             )
+    logger.info("No of files to test: {}".format(len(cfg.TEST.ANNOTATION_FILE)))
+    logger.info("----------------------------------------------------------")
 
-    logger.info("Creating the dataset...")
-    test_dataset = Video_Dataset(
-        cfg,
-        test_list,
-        cfg.TEST.ANNOTATION_FILE,
-        modality,
-        transform=test_transforms,
-        mode="test",
+    assert len(cfg.TEST.ANNOTATION_FILE) == len(
+        cfg.TEST.RESULTS_FILE
+    ), "Number of annotations files to test ({}) and number of result files ({}) do not match".format(
+        len(cfg.TEST.ANNOTATION_FILE), len(cfg.TEST.RESULTS_FILE)
     )
 
-    test_loader = DataLoader(
-        test_dataset,
-        batch_size=cfg.TEST.BATCH_SIZE,
-        shuffle=False,
-        num_workers=cfg.NUM_WORKERS,
-    )
-    logger.info("Done.")
-    logger.info("----------------------------------------------------------")
-
-    logger.info("{} action segments to be processed.".format(len(test_dataset)))
-    logger.info("Inference in progress...")
-
-    start_time = time.time()
-
-    results = test(cfg, model, test_loader, criterion, modality, logger, device)
-
-    logger.info("----------------------------------------------------------")
-    logger.info("Test_Loss: {}".format(results[0]))
-    logger.info("----------------------------------------------------------")
-    logger.info("Accuracy Top {}:".format(cfg.VAL.TOPK))
-    logger.info(json.dumps(results[1], indent=2))
-    logger.info("----------------------------------------------------------")
-
-    if cfg.TEST.SAVE_RESULTS:
-        output_dict = results[3]
-        if cfg.DATA.OUT_DIR:
-            out_file = os.path.join(cfg.DATA.OUT_DIR, cfg.TEST.RESULTS_FILE)
+    for idx, annotation in enumerate(cfg.TEST.ANNOTATION_FILE):
+        if cfg.TEST.VID_LIST:
+            logger.info("Reading list of test videos...")
+            with open(cfg.TEST.VID_LIST) as f:
+                test_list = [x.strip() for x in f.readlines() if len(x.strip()) > 0]
+            logger.info("Done.")
+            logger.info("----------------------------------------------------------")
         else:
-            out_file = os.path.join("./", cfg.TEST.RESULTS_FILE)
-        try:
-            save_scores(output_dict, out_file)
-            logger.info("Saved results to {}".format(out_file))
-        except Exception as e:
-            logger.exception(e)
+            test_list = None
+
+        logger.info("Creating the dataset using {}...".format(annotation))
+        test_dataset = Video_Dataset(
+            cfg,
+            test_list,
+            annotation,
+            modality,
+            transform=test_transforms,
+            mode="test",
+        )
+
+        test_loader = DataLoader(
+            test_dataset,
+            batch_size=cfg.TEST.BATCH_SIZE,
+            shuffle=False,
+            num_workers=cfg.NUM_WORKERS,
+        )
+        logger.info("Done.")
+        logger.info("----------------------------------------------------------")
+
+        logger.info("{} action segments to be processed.".format(len(test_dataset)))
+        logger.info("Inference in progress...")
+
+        start_time = time.time()
+
+        results = test(cfg, model, test_loader, criterion, modality, logger, device)
+
+        logger.info("----------------------------------------------------------")
+        logger.info("Test_Loss: {}".format(results[0]))
+        logger.info("----------------------------------------------------------")
+        logger.info("Accuracy Top {}:".format(cfg.VAL.TOPK))
+        logger.info(json.dumps(results[1], indent=2))
+        logger.info("----------------------------------------------------------")
+
+        if cfg.TEST.SAVE_RESULTS:
+            output_dict = results[3]
+            if cfg.DATA.OUT_DIR:
+                out_file = os.path.join(cfg.DATA.OUT_DIR, cfg.TEST.RESULTS_FILE[idx])
+            else:
+                out_file = os.path.join("./", cfg.TEST.RESULTS_FILE[idx])
+            try:
+                save_scores(output_dict, out_file)
+                logger.info("Saved results to {}".format(out_file))
+            except Exception as e:
+                logger.exception(e)
 
     hours, minutes, seconds = get_time_diff(start_time, time.time())
     logger.info(
