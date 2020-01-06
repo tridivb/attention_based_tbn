@@ -106,10 +106,8 @@ def run_tester(cfg, logger, modality):
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    cfg.MODEL.USE_SOFTMAX = True
-
     logger.info("Initializing model...")
-    model, criterion = build_model(cfg, modality, device)
+    model, criterion, num_gpus = build_model(cfg, modality, device)
     logger.info("Model initialized.")
     logger.info("----------------------------------------------------------")
 
@@ -124,7 +122,7 @@ def run_tester(cfg, logger, modality):
 
     logger.info("Loading pre-trained weights {}...".format(pre_trained))
     data_dict = torch.load(pre_trained, map_location="cpu")
-    if cfg.NUM_GPUS > 1:
+    if num_gpus > 1:
         model.module.load_state_dict(data_dict["model"])
     else:
         model.load_state_dict(data_dict["model"])

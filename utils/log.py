@@ -90,6 +90,9 @@ def setup_log(cfg, modality):
         cfg.MODEL.ARCH, cfg.DATA.DATASET, "-".join(modality), timestamp
     )
 
+    if cfg.EXP_NAME:
+        log_dir = os.path.join(cfg.EXP_NAME, log_dir)
+
     log_dir = os.path.join(cfg.DATA.OUT_DIR, "log", log_dir)
     os.makedirs(log_dir, exist_ok=True)
 

@@ -49,7 +49,7 @@ def get_time_diff(start_time, end_time):
 
     hours = int((end_time - start_time) / 3600)
     minutes = int((end_time - start_time) / 60) - (hours * 60)
-    seconds = round((end_time - start_time) % 60)
+    seconds = np.floor((end_time - start_time) % 60)
     return (hours, minutes, seconds)
 
 

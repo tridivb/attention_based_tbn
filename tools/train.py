@@ -59,21 +59,20 @@ def train(
     no_batches = round(len(data_loader.dataset) / data_loader.batch_size)
     batch_interval = no_batches // 4
     dict_to_device = TransferTensorDict(device)
+    metric = Metric(cfg, no_batches, device)
+    loss_tracker = 0
 
     model.train()
-    train_loss = {"total": 0}
-    for key in cfg.MODEL.NUM_CLASSES.keys():
-        train_loss[key] = 0
     for batch_no, (data, target) in enumerate(data_loader):
         optimizer.zero_grad()
         data, target = dict_to_device(data), dict_to_device(target)
 
         out = model(data)
 
-        loss, _ = model.get_loss(criterion, target, out)
-        for key in train_loss.keys():
-            train_loss[key] += loss[key].item()
+        loss, batch_size = model.get_loss(criterion, target, out)
+        metric.set_metrics(out, target, batch_size, loss)
         loss["total"].backward()
+        loss_tracker += loss["total"].item()
 
         if cfg.TRAIN.CLIP_GRAD:
             total_norm = torch.nn.utils.clip_grad_norm_(
@@ -91,12 +90,11 @@ def train(
         if batch_no == 0 or (batch_no + 1) % batch_interval == 0:
             logger.info(
                 "Batch Progress: [{}/{}] || Train Loss: {:.5f}".format(
-                    (batch_no + 1), no_batches, train_loss["total"] / (batch_no + 1),
+                    (batch_no + 1), no_batches, loss_tracker / (batch_no + 1),
                 )
             )
 
-    for key in loss.keys():
-        train_loss[key] = round(train_loss[key] / no_batches, 5)
+    train_loss, _, _ = metric.get_metrics()
     return train_loss
 
 
@@ -176,7 +174,7 @@ def run_trainer(cfg, logger, modality, writer):
     epochs = cfg.TRAIN.EPOCHS
 
     logger.info("Initializing model...")
-    model, criterion = build_model(cfg, modality, device)
+    model, criterion, num_gpus = build_model(cfg, modality, device)
     logger.info("Model initialized.")
     logger.info("----------------------------------------------------------")
 
@@ -202,7 +200,7 @@ def run_trainer(cfg, logger, modality, writer):
     if cfg.TRAIN.PRE_TRAINED:
         logger.info("Loading pre-trained weights...")
         data_dict = torch.load(cfg.TRAIN.PRE_TRAINED)
-        if cfg.NUM_GPUS > 1:
+        if num_gpus > 1:
             model.module.load_state_dict(data_dict["model"])
         else:
             model.load_state_dict(data_dict["model"])
@@ -355,7 +353,7 @@ def run_trainer(cfg, logger, modality, writer):
             lr_scheduler.step()
 
         if cfg.VAL.VAL_ENABLE and val_acc["all_class"][0] > best_acc:
-            if cfg.NUM_GPUS > 1:
+            if num_gpus > 1:
                 save_checkpoint(
                     model.module,
                     optimizer,

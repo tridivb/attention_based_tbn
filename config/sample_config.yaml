@@ -80,7 +80,7 @@ TRAIN:
   LR: 1e-2
   # SGD Momentum. Only usable with SGD optimizer
   MOMENTUM: 0.9
-  # Adam weight decay. Only usable with Adam optimizer
+  # L2 weight decay.
   WEIGHT_DECAY: 0
   # Epoch numbers at which to decay Learning rate. Only works with SGD optimizer
   LR_STEPS: [20]
@@ -129,7 +129,8 @@ TEST:
 # Misc
 # Number of CPU workers for the Pytorch dataloader
 NUM_WORKERS: 8
-# Number of GPUs to use
-NUM_GPUS: 1
-# GPU IDs to use (optional).
+# GPU IDs to use (optional). If no gpu ids are provided, it will use all available.
 GPU_IDS: []
+# Experiement name for logging purpose. The name can include subdirectories.
+# Log will be saved in <OUT_DIR>/log/<EXP_NAME>/.
+EXP_NAME: ""

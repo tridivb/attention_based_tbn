@@ -42,8 +42,12 @@ def build_model(cfg, modality, device):
     assert (
         cfg.MODEL.LOSS_FN in _LOSS_TYPES.keys()
     ), "Loss type '{}' not supported".format(cfg.MODEL.LOSS_FN)
+    if len(cfg.GPU_IDS) > 0:
+        num_gpus = len(cfg.GPU_IDS)
+    else:
+        num_gpus = torch.cuda.device_count()
     assert (
-        cfg.NUM_GPUS <= torch.cuda.device_count()
+        num_gpus <= torch.cuda.device_count()
     ), "Cannot use more GPU devices than available"
 
     # Construct the model
@@ -53,11 +57,11 @@ def build_model(cfg, modality, device):
     criterion = _LOSS_TYPES[cfg.MODEL.LOSS_FN]()
 
     # Use multi-gpus if set in config
-    if cfg.NUM_GPUS > 1 and device.type == "cuda":
-        device_ids = cfg.GPU_IDS if len(cfg.GPU_IDS) > 0 else None
+    if num_gpus > 1 and device.type == "cuda":
+        device_ids = cfg.GPU_IDS if len(cfg.GPU_IDS) > 1 else None
         model = DataParallel(model, device_ids=device_ids)
         # criterion = torch.nn.DataParallel(criterion, device_ids=device_ids)
 
     model, criterion = model.to(device), criterion.to(device)
 
-    return model, criterion
+    return model, criterion, num_gpus
