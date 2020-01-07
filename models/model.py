@@ -76,6 +76,9 @@ class TBNModel(nn.Module):
         elif modality == "Audio":
             in_channels = 1
 
+        model_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        model_dir = os.path.join(model_dir, "weights")
+
         if "vgg" in self.base_model_name:
             base_model = VGG(self.base_model_name, modality, in_channels)
         elif "resnet" in self.base_model_name:
@@ -85,7 +88,7 @@ class TBNModel(nn.Module):
             base_model = bninception(
                 in_channels,
                 modality,
-                model_dir=self.cfg.MODEL.CHECKPOINT_DIR,
+                model_dir=model_dir,
                 pretrained=pretrained,
             )
 

@@ -86,14 +86,12 @@ def setup_log(cfg, modality):
     """
     # Create log directory
     timestamp = datetime.fromtimestamp(time.time()).strftime("%Y-%m-%d_%H-%M-%S")
-    if cfg.EXP_NAME:
-        log_dir = cfg.EXP_NAME
-    else:
-        log_dir = "run_{}_{}_{}_{}".format(
-            cfg.MODEL.ARCH, cfg.DATA.DATASET, "-".join(modality), timestamp
-        )
+    
+    log_dir = "run_{}_{}_{}_{}".format(
+        cfg.MODEL.ARCH, cfg.DATA.DATASET, "-".join(modality), timestamp
+    )
 
-    log_dir = os.path.join(cfg.DATA.OUT_DIR, "log", log_dir)
+    log_dir = os.path.join(cfg.DATA.OUT_DIR, "log", cfg.EXP_NAME, log_dir)
     os.makedirs(log_dir, exist_ok=True)
 
     log_file = os.path.join(log_dir, "tbn.log")
