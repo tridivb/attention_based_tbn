@@ -158,12 +158,15 @@ def run_tester(cfg, logger, modality):
     logger.info("No of files to test: {}".format(len(cfg.TEST.ANNOTATION_FILE)))
     logger.info("----------------------------------------------------------")
 
-    assert len(cfg.TEST.ANNOTATION_FILE) == len(
-        cfg.TEST.RESULTS_FILE
-    ), "Number of annotations files to test ({}) and number of result files ({}) do not match".format(
-        len(cfg.TEST.ANNOTATION_FILE), len(cfg.TEST.RESULTS_FILE)
-    )
+    if cfg.TEST.SAVE_RESULTS:
+        assert len(cfg.TEST.ANNOTATION_FILE) == len(
+            cfg.TEST.RESULTS_FILE
+        ), "Number of annotations files to test ({}) and number of result files ({}) do not match".format(
+            len(cfg.TEST.ANNOTATION_FILE), len(cfg.TEST.RESULTS_FILE)
+        )
 
+    start_time = time.time()
+    
     for idx, annotation in enumerate(cfg.TEST.ANNOTATION_FILE):
         if cfg.TEST.VID_LIST:
             logger.info("Reading list of test videos...")
@@ -195,8 +198,6 @@ def run_tester(cfg, logger, modality):
 
         logger.info("{} action segments to be processed.".format(len(test_dataset)))
         logger.info("Inference in progress...")
-
-        start_time = time.time()
 
         results = test(cfg, model, test_loader, criterion, modality, logger, device)
 
