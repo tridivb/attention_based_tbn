@@ -3,6 +3,7 @@
 import argparse
 import torch
 from omegaconf import OmegaConf
+import numpy as np
 
 from tools.train import run_trainer
 from tools.test import run_tester
@@ -24,9 +25,8 @@ def main(args):
 
     cfg = OmegaConf.load(args.cfg)
 
-    if cfg.DATA.MANUAL_SEED:
-        np.random.seed(cfg.DATA.MANUAL_SEED)
-        torch.manual_seed(cfg.DATA.MANUAL_SEED)
+    np.random.seed(cfg.DATA.MANUAL_SEED)
+    torch.manual_seed(cfg.DATA.MANUAL_SEED)
 
     modality = get_modality(cfg)
 
