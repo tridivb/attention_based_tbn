@@ -125,8 +125,8 @@ def save_scores(scores, file_name):
 
     for key in scores.keys():
         scores[key] = torch.cat(scores[key], dim=0)
-        if key != "action_id":
-            scores[key] = torch.nn.functional.softmax(scores[key], dim=1)
+        # if key != "action_id":
+        #     scores[key] = torch.nn.functional.softmax(scores[key], dim=1)
 
     results = {}
 
