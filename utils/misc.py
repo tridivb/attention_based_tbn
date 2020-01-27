@@ -61,6 +61,7 @@ def save_checkpoint(
     val_loss_hist,
     val_acc_hist,
     confusion_matrix,
+    num_gpus,
     scheduler=None,
     filename="checkpoint.pth",
 ):
@@ -94,9 +95,13 @@ def save_checkpoint(
         "train_loss": train_loss_hist,
         "validation_loss": val_loss_hist,
         "validation_accuracy": val_acc_hist,
-        "model": model.state_dict(),
         "optimizer": optimizer.state_dict(),
     }
+
+    if num_gpus > 1:
+        data["model"] = model.module.state_dict()
+    else:
+        data["model"] = model.state_dict()
 
     if confusion_matrix:
         data["conf_mat"] = confusion_matrix

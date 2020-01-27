@@ -353,45 +353,6 @@ def run_trainer(cfg, logger, modality, writer):
             lr_scheduler.step()
 
         if cfg.VAL.VAL_ENABLE and val_acc["all_class"][0] > best_acc:
-            if num_gpus > 1:
-                save_checkpoint(
-                    model.module,
-                    optimizer,
-                    epoch,
-                    train_loss_hist,
-                    val_loss_hist,
-                    val_acc_hist,
-                    confusion_matrix,
-                    scheduler=lr_scheduler,
-                    filename=os.path.splitext(checkpoint)[0] + "_best.pth",
-                )
-            else:
-                save_checkpoint(
-                    model,
-                    optimizer,
-                    epoch,
-                    train_loss_hist,
-                    val_loss_hist,
-                    val_acc_hist,
-                    confusion_matrix,
-                    scheduler=lr_scheduler,
-                    filename=os.path.splitext(checkpoint)[0] + "_best.pth",
-                )
-            best_acc = val_acc["all_class"][0]
-
-        if num_gpus > 1:
-            save_checkpoint(
-                model.module,
-                optimizer,
-                epoch,
-                train_loss_hist,
-                val_loss_hist,
-                val_acc_hist,
-                confusion_matrix,
-                scheduler=lr_scheduler,
-                filename=checkpoint,
-            )
-        else:
             save_checkpoint(
                 model,
                 optimizer,
@@ -400,9 +361,24 @@ def run_trainer(cfg, logger, modality, writer):
                 val_loss_hist,
                 val_acc_hist,
                 confusion_matrix,
+                num_gpus,
                 scheduler=lr_scheduler,
-                filename=checkpoint,
+                filename=os.path.splitext(checkpoint)[0] + "_best.pth",
             )
+            best_acc = val_acc["all_class"][0]
+
+        save_checkpoint(
+            model,
+            optimizer,
+            epoch,
+            train_loss_hist,
+            val_loss_hist,
+            val_acc_hist,
+            confusion_matrix,
+            num_gpus,
+            scheduler=lr_scheduler,
+            filename=checkpoint,
+        )
 
         hours, minutes, seconds = get_time_diff(epoch_start_time, time.time())
 

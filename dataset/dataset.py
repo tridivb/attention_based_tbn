@@ -57,7 +57,6 @@ class Video_Dataset(Dataset):
         self.mode = mode
 
         self.read_flow_pickle = cfg.DATA.READ_FLOW_PICKLE
-        self.sampling_rate = cfg.DATA.AUDIO_SAMPLING_RATE
         self.read_audio_pickle = cfg.DATA.READ_AUDIO_PICKLE
 
         self.transform = transform
@@ -129,9 +128,9 @@ class Video_Dataset(Dataset):
                     indices[m].repeat(self.frame_len[m])
                     + np.tile(np.arange(self.frame_len[m]), self.num_segments)
                 ).astype(np.int64)
-                data[m] = self._get_frames(vid_record, m, vid_id, frame_indices)
+                data[m] = self._get_frames(m, vid_id, frame_indices)
             else:
-                data[m] = self._get_frames(vid_record, m, vid_id, indices[m])
+                data[m] = self._get_frames(m, vid_id, indices[m])
             data[m] = self._transform_data(data[m], m)
 
         target = vid_record.label
@@ -182,14 +181,12 @@ class Video_Dataset(Dataset):
 
         return indices
 
-    def _get_frames(self, vid_record, modality, vid_id, indices):
+    def _get_frames(self, modality, vid_id, indices):
         """
         Helper function to get list of frames for a specific modality
 
         Args
         ----------
-        vid_record: EpicVideoRecord object
-            Object of EpicVideoRecord class
         modality: str
             Input modality to process
         vid_id: str
@@ -212,31 +209,17 @@ class Video_Dataset(Dataset):
 
         for ind in indices:
             frames.extend(
-                self._read_frames(vid_record, ind, vid_id, modality, aud_sample)
+                self._read_frames(ind, vid_id, modality, aud_sample)
             )
-            # if modality == "RGB":
-            #     rgb_file_name = "img_{:010d}.{}".format(ind, self.vis_file_ext)
-            #     rgb_path = os.path.join(self.root_dir, self.rgb_prefix, vid_id)
-            #     img = cv2.imread(os.path.join(rgb_path, rgb_file_name))
-            #     # Convert to rgb
-            #     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-            #     frames.extend([img])
-            # elif modality == "Flow":
-            #     frames.extend(self._read_flow_frames(ind, vid_id))
-            # elif modality == "Audio":
-            #     spec = self._get_audio_segment(vid_record, ind, aud_sample)
-            #     frames.extend([spec])
 
         return frames
 
-    def _read_frames(self, vid_record, frame_idx, vid_id, modality, aud_sample=None):
+    def _read_frames(self, frame_idx, vid_id, modality, aud_sample=None):
         """
         Helper function to get read images or get spectrogram for an index
 
         Args
         ----------
-        vid_record: EpicVideoRecord object
-            Object of EpicVideoRecord class
         frame_idx: int
             Index of the frame to be read
         vid_id: str
@@ -261,7 +244,7 @@ class Video_Dataset(Dataset):
         elif modality == "Flow":
             return self._read_flow_frames(frame_idx, vid_id)
         elif modality == "Audio":
-            spec = self._get_audio_segment(vid_record, frame_idx, aud_sample)
+            spec = self._get_audio_segment(frame_idx, aud_sample)
             return [spec]
 
     def _read_flow_frames(self, frame_idx, vid_id):
@@ -357,14 +340,12 @@ class Video_Dataset(Dataset):
 
         return sample
 
-    def _get_audio_segment(self, vid_record, frame_idx, aud_sample):
+    def _get_audio_segment(self, frame_idx, aud_sample):
         """
         Helper function to trim sampled audio and return a spectrogram
 
         Args
         ----------
-        vid_record: EpicVideoRecord object
-            Object of EpicVideoRecord class
         frame_idx: int
             Center Index of the temporal audio window to be read
         aud_sample: np.ndarray
