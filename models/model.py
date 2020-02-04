@@ -7,6 +7,7 @@ import numpy as np
 from .vgg import VGG
 from .resnet import Resnet
 from .bn_inception import bninception
+from .consensus import SegmentConsensus
 
 
 class TBNModel(nn.Module):
@@ -54,6 +55,8 @@ class TBNModel(nn.Module):
             self.add_module(
                 "classifier", Classifier(self.num_classes, in_features),
             )
+        
+        self.add_module("consensus", SegmentConsensus())
 
     def _create_base_model(self, modality):
         """
@@ -123,32 +126,32 @@ class TBNModel(nn.Module):
                     mod.weight.requires_grad = False
                     mod.bias.requires_grad = False
 
-    def _aggregate_scores(self, scores, new_shape=(1, -1)):
-        """
-        Helper function to freeze weights of the base model
+    # def _aggregate_scores(self, scores, new_shape=(1, -1)):
+    #     """
+    #     Helper function to freeze weights of the base model
         
-        Args
-        ----------
-        scores: tensor, dict
-            Final output scores for each temporal binding window
-        new_shape: tuple
-            New shape for the output tensor
+    #     Args
+    #     ----------
+    #     scores: tensor, dict
+    #         Final output scores for each temporal binding window
+    #     new_shape: tuple
+    #         New shape for the output tensor
 
-        """
+    #     """
 
-        assert isinstance(scores, (dict, torch.Tensor))
-        assert isinstance(new_shape, tuple)
+    #     assert isinstance(scores, (dict, torch.Tensor))
+    #     assert isinstance(new_shape, tuple)
 
-        if isinstance(scores, dict):
-            for key in scores.keys():
-                # Reshape the tensor to B x N x feature size,
-                # before calculating the mean over the trimmed action segment
-                # where B = batch size and N = number of segment
-                scores[key] = scores[key].view(new_shape).mean(dim=1)
-        else:
-            scores = scores[key].view(new_shape).mean(dim=1)
+    #     if isinstance(scores, dict):
+    #         for key in scores.keys():
+    #             # Reshape the tensor to B x N x feature size,
+    #             # before calculating the mean over the trimmed action segment
+    #             # where B = batch size and N = number of segment
+    #             scores[key] = scores[key].view(new_shape).mean(dim=1)
+    #     else:
+    #         scores = scores[key].view(new_shape).mean(dim=1)
 
-        return scores
+    #     return scores
 
     def forward(self, input):
         """
@@ -167,7 +170,11 @@ class TBNModel(nn.Module):
 
         out = self.classifier(features)
 
-        out = self._aggregate_scores(out, new_shape=(b, n, -1))
+        for key in out.keys():
+            out[key] = out[key].view((b, n, -1))
+            out[key] = self.consensus(out[key])
+
+        # out = self._aggregate_scores(out, new_shape=(b, n, -1))
 
         return out
 
