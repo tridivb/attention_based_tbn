@@ -56,7 +56,7 @@ class TBNModel(nn.Module):
                 "classifier", Classifier(self.num_classes, in_features),
             )
         
-        self.add_module("consensus", SegmentConsensus())
+        self.consensus = SegmentConsensus.apply
 
     def _create_base_model(self, modality):
         """
@@ -172,7 +172,7 @@ class TBNModel(nn.Module):
 
         for key in out.keys():
             out[key] = out[key].view((b, n, -1))
-            out[key] = self.consensus(out[key])
+            out[key] = self.consensus(out[key]).squeeze()
 
         # out = self._aggregate_scores(out, new_shape=(b, n, -1))
 

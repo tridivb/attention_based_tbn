@@ -168,6 +168,9 @@ class Video_Dataset(Dataset):
             else:
                 # choose the center as the offset of the segment
                 offsets = seg_len // 2
+                # Center the flow window during validation
+                if modality == "Flow":
+                    offsets = offsets - (self.frame_len[modality] // 2)
 
             indices = (
                 vid_record.start_frame[modality]
