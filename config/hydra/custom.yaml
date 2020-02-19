@@ -1,0 +1,9 @@
+hydra:
+  run:
+    dir: "${out_dir}/${exp_name}/run_${model.arch}_${data.dataset}_${now:%Y_%m_%d}_${now:%H_%M_%S}"
+  job_logging:
+    formatters:
+      simple:
+        format: "%(levelname)s : %(asctime)s : %(message)s"
+    root:
+      handlers: [console, file]

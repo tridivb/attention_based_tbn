@@ -18,24 +18,24 @@ class Metric(object):
     def __init__(self, cfg, no_batches, device=torch.device("cuda")):
         super(Metric, self).__init__()
         self.cfg = cfg
-        self.topk = self.cfg.VAL.TOPK
+        self.topk = self.cfg.val.topk
         self.device = device
         self.no_batches = no_batches
-        self.multi_class = True if len(self.cfg.MODEL.NUM_CLASSES.keys()) > 1 else False
+        self.multi_class = True if len(self.cfg.model.num_classes.keys()) > 1 else False
 
         self.loss = {}
         self.accuracy = {}
         self.conf_mat = {}
         self.loss = {}
 
-        for key, no_cls in self.cfg.MODEL.NUM_CLASSES.items():
-            self.accuracy[key] = [0] * (len(cfg.VAL.TOPK))
+        for key, no_cls in self.cfg.model.num_classes.items():
+            self.accuracy[key] = [0] * (len(cfg.val.topk))
             self.conf_mat[key] = torch.zeros((no_cls, no_cls), device=device)
             self.loss[key] = 0
 
         if self.multi_class:
             self.loss["total"] = 0
-            self.accuracy["all_class"] = [0] * (len(cfg.VAL.TOPK))
+            self.accuracy["all_class"] = [0] * (len(cfg.val.topk))
             self.loss["total"] = 0
 
     def set_metrics(self, out, target, batch_size, batch_loss):

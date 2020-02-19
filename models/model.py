@@ -21,14 +21,14 @@ class TBNModel(nn.Module):
         List of input modalities
     """
 
-    def __init__(self, cfg, modality):
+    def __init__(self, cfg, modality, device):
         super(TBNModel, self).__init__()
 
         self.cfg = cfg
         self.modality = modality
-        self.base_model_name = cfg.MODEL.ARCH
-        self.num_classes = cfg.MODEL.NUM_CLASSES
-        if cfg.MODEL.AGG_TYPE.lower() == "avg":
+        self.base_model_name = cfg.model.arch
+        self.num_classes = cfg.model.num_classes
+        if cfg.model.agg_type.lower() == "avg":
             self.agg_type = "avg"
         else:
             print("Incorrect aggregation type")
@@ -39,13 +39,13 @@ class TBNModel(nn.Module):
         for m in self.modality:
             self.add_module("Base_{}".format(m), self._create_base_model(m))
             in_features += getattr(self, "Base_{}".format(m)).feature_size
-            if cfg.MODEL.FREEZE_BASE:
-                self._freeze_base_model(m, freeze_mode=cfg.MODEL.FREEZE_MODE)
+            if cfg.model.freeze_base:
+                self._freeze_base_model(m, freeze_mode=cfg.model.freeze_mode)
 
         # Create fusion layer (if applicable) and final linear classificatin layer
         if len(self.modality) > 1:
             self.add_module(
-                "fusion", Fusion(in_features, 512, dropout=cfg.MODEL.FUSION_DROPOUT)
+                "fusion", Fusion(in_features, 512, dropout=cfg.model.fusion_dropout)
             )
             self.add_module(
                 "classifier", Classifier(self.num_classes, 512),
@@ -86,10 +86,7 @@ class TBNModel(nn.Module):
         elif self.base_model_name == "bninception":
             pretrained = "kinetics" if modality == "Flow" else "imagenet"
             base_model = bninception(
-                in_channels,
-                modality,
-                model_dir=model_dir,
-                pretrained=pretrained,
+                in_channels, modality, model_dir=model_dir, pretrained=pretrained,
             )
 
         return base_model
