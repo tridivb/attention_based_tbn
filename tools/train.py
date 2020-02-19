@@ -74,14 +74,14 @@ def train(
         loss["total"].backward()
         loss_tracker += loss["total"].item()
 
-        if cfg.TRAIN.CLIP_GRAD:
+        if cfg.train.clip_grad:
             total_norm = torch.nn.utils.clip_grad_norm_(
-                model.parameters(), cfg.TRAIN.CLIP_GRAD
+                model.parameters(), cfg.train.clip_grad
             )
-            if total_norm > cfg.TRAIN.CLIP_GRAD:
+            if total_norm > cfg.train.clip_grad:
                 logger.info(
                     "Clipping gradient: {} with coef {}".format(
-                        total_norm, cfg.TRAIN.CLIP_GRAD / total_norm
+                        total_norm, cfg.train.clip_grad / total_norm
                     )
                 )
 
@@ -171,35 +171,35 @@ def run_trainer(cfg, logger, modality, writer):
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    epochs = cfg.TRAIN.EPOCHS
+    epochs = cfg.train.epochs
 
     logger.info("Initializing model...")
     model, criterion, num_gpus = build_model(cfg, modality, device)
     logger.info("Model initialized.")
     logger.info("----------------------------------------------------------")
 
-    if cfg.TRAIN.OPTIM.lower() == "sgd":
+    if cfg.train.optim.lower() == "sgd":
         optimizer = optim.SGD(
             model.parameters(),
-            cfg.TRAIN.LR,
-            momentum=cfg.TRAIN.MOMENTUM,
-            weight_decay=cfg.TRAIN.WEIGHT_DECAY,
+            cfg.train.lr,
+            momentum=cfg.train.momentum,
+            weight_decay=cfg.train.weight_decay,
         )
         lr_scheduler = optim.lr_scheduler.MultiStepLR(
-            optimizer, milestones=cfg.TRAIN.LR_STEPS, gamma=cfg.TRAIN.LR_DECAY
+            optimizer, milestones=cfg.train.lr_steps, gamma=cfg.train.lr_decay
         )
-    elif cfg.TRAIN.OPTIM.lower() == "adam":
+    elif cfg.train.optim.lower() == "adam":
         optimizer = optim.Adam(
             model.parameters(),
-            cfg.TRAIN.LR,
+            cfg.train.lr,
             betas=(0.9, 0.999),
-            weight_decay=cfg.TRAIN.WEIGHT_DECAY,
+            weight_decay=cfg.train.weight_decay,
         )
         lr_scheduler = None
 
-    if cfg.TRAIN.PRE_TRAINED:
+    if cfg.train.pre_trained:
         logger.info("Loading pre-trained weights...")
-        data_dict = torch.load(cfg.TRAIN.PRE_TRAINED)
+        data_dict = torch.load(cfg.train.pre_trained)
         if num_gpus > 1:
             model.module.load_state_dict(data_dict["model"])
         else:
@@ -222,18 +222,18 @@ def run_trainer(cfg, logger, modality, writer):
         start_epoch = 0
         train_loss_hist = []
         val_loss_hist = []
-        val_acc_hist = {k: [] for k in cfg.MODEL.NUM_CLASSES.keys()}
+        val_acc_hist = {k: [] for k in cfg.model.num_classes.keys()}
 
-    checkpoint_name = "tbn_{}_{}.pth".format(cfg.MODEL.ARCH, "_".join(modality))
-    if cfg.DATA.DATASET:
-        checkpoint_name = "_".join([cfg.DATA.DATASET, checkpoint_name])
-    checkpoint = os.path.join(cfg.MODEL.CHECKPOINT_DIR, checkpoint_name)
+    checkpoint_name = "tbn_{}_{}.pth".format(cfg.model.arch, "_".join(modality))
+    if cfg.data.dataset:
+        checkpoint_name = "_".join([cfg.data.dataset, checkpoint_name])
+    checkpoint = os.path.join(cfg.model.checkpoint_dir, checkpoint_name)
 
     logger.info("Reading list of training and validation videos...")
-    with open(cfg.TRAIN.VID_LIST) as f:
+    with open(cfg.train.vid_list) as f:
         train_list = [x.strip() for x in f.readlines() if len(x.strip()) > 0]
 
-    with open(cfg.VAL.VID_LIST) as f:
+    with open(cfg.val.vid_list) as f:
         val_list = [x.strip() for x in f.readlines() if len(x.strip()) > 0]
 
     logger.info("Done.")
@@ -245,39 +245,39 @@ def run_trainer(cfg, logger, modality, writer):
         if m == "RGB":
             train_transforms[m] = torchvision.transforms.Compose(
                 [
-                    MultiScaleCrop(cfg.DATA.TRAIN_CROP_SIZE, [1, 0.875, 0.75, 0.66]),
+                    MultiScaleCrop(cfg.data.train_crop_size, [1, 0.875, 0.75, 0.66]),
                     RandomHorizontalFlip(prob=0.5),
                     Stack(m),
                     ToTensor(),
-                    Normalize(cfg.DATA.RGB_MEAN, cfg.DATA.RGB_STD),
+                    Normalize(cfg.data.rgb_mean, cfg.data.rgb_std),
                 ]
             )
             val_transforms[m] = torchvision.transforms.Compose(
                 [
-                    Rescale(cfg.DATA.TEST_SCALE_SIZE),
-                    CenterCrop(cfg.DATA.TEST_CROP_SIZE),
+                    Rescale(cfg.data.test_scale_size),
+                    CenterCrop(cfg.data.test_crop_size),
                     Stack(m),
                     ToTensor(),
-                    Normalize(cfg.DATA.RGB_MEAN, cfg.DATA.RGB_STD),
+                    Normalize(cfg.data.rgb_mean, cfg.data.rgb_std),
                 ]
             )
         elif m == "Flow":
             train_transforms[m] = torchvision.transforms.Compose(
                 [
-                    MultiScaleCrop(cfg.DATA.TRAIN_CROP_SIZE, [1, 0.875, 0.75]),
+                    MultiScaleCrop(cfg.data.train_crop_size, [1, 0.875, 0.75]),
                     RandomHorizontalFlip(prob=0.5),
                     Stack(m),
                     ToTensor(),
-                    Normalize(cfg.DATA.FLOW_MEAN, cfg.DATA.FLOW_STD),
+                    Normalize(cfg.data.flow_mean, cfg.data.flow_std),
                 ]
             )
             val_transforms[m] = torchvision.transforms.Compose(
                 [
-                    Rescale(cfg.DATA.TEST_SCALE_SIZE),
-                    CenterCrop(cfg.DATA.TEST_CROP_SIZE),
+                    Rescale(cfg.data.test_scale_size),
+                    CenterCrop(cfg.data.test_crop_size),
                     Stack(m),
                     ToTensor(),
-                    Normalize(cfg.DATA.FLOW_MEAN, cfg.DATA.FLOW_STD),
+                    Normalize(cfg.data.flow_mean, cfg.data.flow_std),
                 ]
             )
         elif m == "Audio":
@@ -292,7 +292,7 @@ def run_trainer(cfg, logger, modality, writer):
     train_dataset = Video_Dataset(
         cfg,
         train_list,
-        cfg.TRAIN.ANNOTATION_FILE,
+        cfg.train.annotation_file,
         modality,
         transform=train_transforms,
         mode="train",
@@ -301,7 +301,7 @@ def run_trainer(cfg, logger, modality, writer):
     val_dataset = Video_Dataset(
         cfg,
         val_list,
-        cfg.TRAIN.ANNOTATION_FILE,
+        cfg.train.annotation_file,
         modality,
         transform=val_transforms,
         mode="val",
@@ -309,15 +309,15 @@ def run_trainer(cfg, logger, modality, writer):
 
     train_loader = DataLoader(
         train_dataset,
-        batch_size=cfg.TRAIN.BATCH_SIZE,
+        batch_size=cfg.train.batch_size,
         shuffle=True,
-        num_workers=cfg.NUM_WORKERS,
+        num_workers=cfg.num_workers,
     )
     val_loader = DataLoader(
         val_dataset,
-        batch_size=cfg.VAL.BATCH_SIZE,
+        batch_size=cfg.val.batch_size,
         shuffle=False,
-        num_workers=cfg.NUM_WORKERS,
+        num_workers=cfg.num_workers,
     )
 
     logger.info("Done.")
@@ -339,7 +339,7 @@ def run_trainer(cfg, logger, modality, writer):
         train_loss_hist.append(train_loss)
         logger.info("Validation in progress...")
 
-        if cfg.VAL.VAL_ENABLE:
+        if cfg.val.val_enable:
             val_loss, val_acc, confusion_matrix = validate(
                 cfg, model, val_loader, criterion, modality, logger, device
             )
@@ -352,7 +352,7 @@ def run_trainer(cfg, logger, modality, writer):
         if lr_scheduler:
             lr_scheduler.step()
 
-        if cfg.VAL.VAL_ENABLE and val_acc["all_class"][0] > best_acc:
+        if cfg.val.val_enable and val_acc["all_class"][0] > best_acc:
             save_checkpoint(
                 model,
                 optimizer,
@@ -395,7 +395,7 @@ def run_trainer(cfg, logger, modality, writer):
             )
         )
         logger.info("----------------------------------------------------------")
-        logger.info("Accuracy Top {}:".format(cfg.VAL.TOPK))
+        logger.info("Accuracy Top {}:".format(cfg.val.topk))
         logger.info(json.dumps(val_acc, indent=2))
         logger.info("----------------------------------------------------------")
 
@@ -405,7 +405,7 @@ def run_trainer(cfg, logger, modality, writer):
         for cls, acc in val_acc.items():
             for k, v in enumerate(acc):
                 plotter.plot_scalar(
-                    v, epoch, "val/accuracy/{}_top_{}".format(cls, cfg.VAL.TOPK[k])
+                    v, epoch, "val/accuracy/{}_top_{}".format(cls, cfg.val.topk[k])
                 )
 
     hours, minutes, seconds = get_time_diff(start_time, time.time())

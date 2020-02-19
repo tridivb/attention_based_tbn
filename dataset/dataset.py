@@ -45,33 +45,35 @@ class Video_Dataset(Dataset):
         mode="train",
     ):
         self.cfg = cfg
-        self.root_dir = cfg.DATA.DATA_DIR
-        self.rgb_prefix = cfg.DATA.RGB_DIR_PREFIX
-        self.flow_prefix = cfg.DATA.FLOW_DIR_PREFIX
-        self.audio_prefix = cfg.DATA.AUDIO_DIR_PREFIX
+        self.root_dir = cfg.data.data_dir
+        self.rgb_prefix = cfg.data.rgb_dir_prefix
+        self.flow_prefix = cfg.data.flow_dir_prefix
+        self.audio_prefix = cfg.data.audio_dir_prefix
 
-        self.vis_file_ext = cfg.DATA.FRAME_FILE_EXT
-        self.aud_file_ext = cfg.DATA.AUDIO_FILE_EXT
+        self.vis_file_ext = cfg.data.frame_file_ext
+        self.aud_file_ext = cfg.data.audio_file_ext
+
+        self.aud_sampling_rate = cfg.data.sampling_rate
 
         self.modality = modality
         self.mode = mode
 
-        self.read_flow_pickle = cfg.DATA.READ_FLOW_PICKLE
-        self.read_audio_pickle = cfg.DATA.READ_AUDIO_PICKLE
+        self.read_flow_pickle = cfg.data.read_flow_pickle
+        self.read_audio_pickle = cfg.data.read_audio_pickle
 
         self.transform = transform
 
         if mode == "train":
-            self.num_segments = cfg.TRAIN.NUM_SEGMENTS
+            self.num_segments = cfg.train.num_segments
         elif mode == "val":
-            self.num_segments = cfg.VAL.NUM_SEGMENTS
+            self.num_segments = cfg.val.num_segments
         elif mode == "test":
-            self.num_segments = cfg.TEST.NUM_SEGMENTS
+            self.num_segments = cfg.test.num_segments
 
         self.frame_len = {}
         for m in self.modality:
             if m == "Flow":
-                self.frame_len[m] = self.cfg.DATA.FLOW_WIN_LENGTH
+                self.frame_len[m] = cfg.data.flow_win_length
             else:
                 self.frame_len[m] = 1
 
@@ -158,9 +160,12 @@ class Video_Dataset(Dataset):
 
         """
 
-        seg_len = (
-            vid_record.num_frames[modality] - self.frame_len[modality] + 1
-        ) // self.num_segments
+        if self.mode == "train":
+            seg_len = (
+                vid_record.num_frames[modality] - self.frame_len[modality] + 1
+            ) // self.num_segments
+        else:
+            seg_len = vid_record.num_frames[modality] // self.num_segments
         if seg_len > 0:
             if self.mode == "train":
                 # randomly select an offset for the segment
@@ -211,9 +216,7 @@ class Video_Dataset(Dataset):
             aud_sample = None
 
         for ind in indices:
-            frames.extend(
-                self._read_frames(ind, vid_id, modality, aud_sample)
-            )
+            frames.extend(self._read_frames(ind, vid_id, modality, aud_sample))
 
         return frames
 
@@ -315,9 +318,7 @@ class Video_Dataset(Dataset):
         if self.read_audio_pickle:
             # Read from numpy file
             npy_file = os.path.join(
-                self.cfg.DATA.DATA_DIR,
-                self.cfg.DATA.AUDIO_DIR_PREFIX,
-                "{}.npy".format(vid_id),
+                self.root_dir, self.audio_prefix, "{}.npy".format(vid_id),
             )
             try:
                 sample = np.load(npy_file)
@@ -328,13 +329,13 @@ class Video_Dataset(Dataset):
         else:
             # Read from raw file
             aud_file = os.path.join(
-                self.cfg.DATA.DATA_DIR,
-                self.cfg.DATA.AUDIO_DIR_PREFIX,
+                self.root_dir,
+                self.audio_prefix,
                 "{}.{}".format(vid_id, self.aud_file_ext),
             )
             try:
                 sample, _ = lr.core.load(
-                    aud_file, sr=self.cfg.DATA.SAMPLING_RATE, mono=True,
+                    aud_file, sr=self.aud_sampling_rate, mono=True,
                 )
             except Exception as e:
                 raise Exception(
@@ -361,16 +362,17 @@ class Video_Dataset(Dataset):
 
         """
 
-        min_len = int(self.cfg.DATA.AUDIO_LENGTH * self.cfg.DATA.SAMPLING_RATE)
+        min_len = int(self.cfg.data.audio_length * self.aud_sampling_rate)
         max_len = aud_sample.shape[0]
 
         # Find the starting temporal offset of the audio sample
-        start_sec = float(frame_idx / self.cfg.DATA.VID_FPS) - (self.cfg.DATA.AUDIO_LENGTH / 2)
+        start_sec = float(frame_idx / self.cfg.data.vid_fps) - (
+            self.cfg.data.audio_length / 2
+        )
         # Find the starting frame of the audio sample array
-        start_frame = int(max(0, start_sec * self.cfg.DATA.SAMPLING_RATE))
-        if  start_frame + min_len > max_len:
+        start_frame = int(max(0, start_sec * self.aud_sampling_rate))
+        if start_frame + min_len > max_len:
             start_frame = max_len - min_len
-
 
         sample = aud_sample[start_frame : start_frame + min_len]
 
@@ -400,8 +402,8 @@ class Video_Dataset(Dataset):
 
         """
 
-        nperseg = int(round(window_size * self.cfg.DATA.SAMPLING_RATE / 1e3))
-        noverlap = int(round(step_size * self.cfg.DATA.SAMPLING_RATE / 1e3))
+        nperseg = int(round(window_size * self.aud_sampling_rate / 1e3))
+        noverlap = int(round(step_size * self.aud_sampling_rate / 1e3))
 
         spec = lr.stft(
             sample,

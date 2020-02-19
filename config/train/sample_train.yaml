@@ -1,0 +1,29 @@
+# Train Parameters
+TRAIN:
+  # Flag to turn on/off training
+  TRAIN_ENABLE: True
+  # Annotation file for both training and validation
+  ANNOTATION_FILE: "/path/to/train/annotation/file"
+  VID_LIST: "/path/to/video/list/to/process/for/training"
+  # Optimizer type
+  OPTIM: "sgd"
+  # Training Batch size
+  BATCH_SIZE: 48
+  # Number of epochs
+  EPOCHS: 30
+  # Learning rate
+  LR: 1e-2
+  # SGD Momentum. Only usable with SGD optimizer
+  MOMENTUM: 0.9
+  # L2 weight decay.
+  WEIGHT_DECAY: 0
+  # Epoch numbers at which to decay Learning rate. Only works with SGD optimizer
+  LR_STEPS: [20]
+  # Learning decay rate. Only works with SGD optimizer
+  LR_DECAY: 1e-1
+  # Gradient clipping threshold
+  CLIP_GRAD: 20
+  # Number of temporal segments to sample for each trimmed video segment
+  NUM_SEGMENTS: 3
+  # Pretrained weights to load to continue training.
+  PRE_TRAINED: ""

@@ -1,0 +1,12 @@
+defaults:
+  - data: tbn_data
+  - model: tbn_model
+  - train: tbn_train
+  - val: tbn_val
+  - test: tbn_test
+  - hydra: custom
+num_workers: 8
+gpu_ids: []
+exp_name: "hydra_test"
+out_dir: "/media/data/tridiv/epic/log"
+  

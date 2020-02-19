@@ -11,12 +11,22 @@ class BNInception(BNInception):
     """
     Inherited BNInception class from the pretrainedmodels module
     """
-    def logits(self, features):
+
+    def logits(self, features, is_audio=False):
         """
         Overloaded logits function to return features from BNInception
         instead of class predictions
         """
         adaptiveAvgPoolWidth = features.shape[2]
+        # # Avg pool the spectrogram along frequency dimension only
+        # if is_audio:
+        #     x = F.avg_pool2d(
+        #         features,
+        #         kernel_size=(adaptiveAvgPoolWidth, 1),
+        #         stride=(adaptiveAvgPoolWidth, 1),
+        #     )
+        #     return x
+        # else:
         x = F.avg_pool2d(features, kernel_size=adaptiveAvgPoolWidth)
         x = x.view(x.size(0), -1)
         # x = self.last_linear(x)

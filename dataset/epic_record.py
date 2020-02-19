@@ -8,7 +8,7 @@ class EpicVideoRecord(VideoRecord):
     @property
     def action_id(self):
         return self._series["uid"]
-    
+
     @property
     def untrimmed_video_name(self):
         return self._series["video_id"]

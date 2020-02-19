@@ -1,0 +1,16 @@
+# train parameters
+train:
+  train_enable: True
+  annotation_file: "/media/data/tridiv/epic_kitchens/annotations/epic_train_action_labels.csv"
+  vid_list: "/media/remote_home/tridiv/attention_based_tbn/data/train_split_seen.txt"
+  optim: "sgd"
+  batch_size: 32
+  epochs: 40
+  lr: 1e-2
+  momentum: 0.9
+  weight_decay: 0
+  lr_steps: [30]
+  lr_decay: 1e-1
+  clip_grad: 20
+  num_segments: 3
+  pre_trained: ""
