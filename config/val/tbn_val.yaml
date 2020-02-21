@@ -2,7 +2,7 @@
 val:
   val_enable: True
   vid_list: "/media/remote_home/tridiv/attention_based_tbn/data/val_split_seen.txt"
-  batch_size: 6
+  batch_size: 2
   topk: [1, 5]
   num_segments: 25
   pre_trained: ""

@@ -1,7 +1,10 @@
 # test parameters
 test:
   test_enable: True
-  annotation_file: ["/media/data/tridiv/epic_kitchens/annotations/EPIC_train_action_labels.csv"]
+  annotation_file:
+    [
+      "/media/data/tridiv/epic_kitchens/annotations/EPIC_train_action_labels.csv",
+    ]
   vid_list: "/media/remote_home/tridiv/attention_based_tbn/data/val_split_seen.txt"
   batch_size: 6
   topk: [1, 5]

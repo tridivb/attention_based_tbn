@@ -2,9 +2,9 @@
 data:
   data_dir: "/media/data/tridiv/epic"
   dataset: "epic"
-  use_rgb: True 
+  use_rgb: True
   rgb_dir_prefix: "links"
-  use_flow: False 
+  use_flow: False
   read_flow_pickle: True
   flow_dir_prefix: "flow_pickle"
   use_audio: True
@@ -16,7 +16,7 @@ data:
   audio_file_ext: "wav"
   flow_win_length: 5
   sampling_rate: 24000
-  audio_length: 1.279
+  audio_length: 4.0
   rgb_mean: [0.408, 0.459, 0.502]
   rgb_std: [1.0, 1.0, 1.0]
   flow_mean: [0.502]

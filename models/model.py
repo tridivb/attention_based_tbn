@@ -7,6 +7,7 @@ import numpy as np
 from .vgg import VGG
 from .resnet import Resnet
 from .bn_inception import bninception
+from .attention import PositionalEncoding, AttentionLayer
 
 
 class TBNModel(nn.Module):
@@ -28,6 +29,8 @@ class TBNModel(nn.Module):
         self.modality = modality
         self.base_model_name = cfg.model.arch
         self.num_classes = cfg.model.num_classes
+        self.use_attention = cfg.model.use_attention
+
         if cfg.model.agg_type.lower() == "avg":
             self.agg_type = "avg"
         else:
@@ -44,6 +47,13 @@ class TBNModel(nn.Module):
 
         # Create fusion layer (if applicable) and final linear classificatin layer
         if len(self.modality) > 1:
+            if self.use_attention:
+                self.pe = nn.Sequential(
+                    PositionalEncoding(10, max_len=25, device=device),
+                    nn.Conv1d(1034, 1024, 1),
+                    nn.BatchNorm1d(1024),
+                )
+                self.attention_layer = AttentionLayer(1024, 1, 0)
             self.add_module(
                 "fusion", Fusion(in_features, 512, dropout=cfg.model.fusion_dropout)
             )
@@ -79,6 +89,8 @@ class TBNModel(nn.Module):
         model_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         model_dir = os.path.join(model_dir, "weights")
 
+        is_audio = True if modality == "Audio" else False
+
         if "vgg" in self.base_model_name:
             base_model = VGG(self.base_model_name, modality, in_channels)
         elif "resnet" in self.base_model_name:
@@ -86,7 +98,11 @@ class TBNModel(nn.Module):
         elif self.base_model_name == "bninception":
             pretrained = "kinetics" if modality == "Flow" else "imagenet"
             base_model = bninception(
-                in_channels, modality, model_dir=model_dir, pretrained=pretrained,
+                in_channels,
+                modality,
+                model_dir=model_dir,
+                pretrained=pretrained,
+                is_audio=is_audio,
             )
 
         return base_model
@@ -156,7 +172,12 @@ class TBNModel(nn.Module):
             b, n, c, h, w = input[m].shape
             base_model = getattr(self, "Base_{}".format(m))
             feature = base_model(input[m].view(b * n, c, h, w))
-            features.extend([feature.view(b * n, -1)])
+            if m == "Audio" and self.use_attention:
+                feature = self.pe(feature)
+                feature = feature.transpose(1,2).transpose(0,1)
+                feature, att_wts = self.attention_layer(features[0].unsqueeze(0), feature, feature)
+                feature = feature.squeeze(0)
+            features.extend([feature])
         features = torch.cat(features, dim=1)
 
         if len(self.modality) > 1:
