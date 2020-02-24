@@ -68,14 +68,15 @@ def test(
         for data, target, action_id in tqdm(data_loader):
             data = dict_to_device(data)
 
+            # Is this necessary?
             if isinstance(target, dict):
                 target = dict_to_device(target)
 
             out = model(data)
 
             if isinstance(target, dict):
-                loss, batch_size = model.get_loss(criterion, target, out)
-                metric.set_metrics(out, target, batch_size, loss)
+                loss, batch_size = model.get_loss(criterion, target["class"], out)
+                metric.set_metrics(out, target["class"], batch_size, loss)
             if cfg.test.save_results:
                 output["action_id"].extend([action_id])
                 for key in out.keys():
