@@ -110,6 +110,7 @@ def run_tester(cfg, logger, modality):
     logger.info("Initializing model...")
     model, criterion, num_gpus = build_model(cfg, modality, device)
     logger.info("Model initialized.")
+    logger.info(model)
     logger.info("----------------------------------------------------------")
 
     if cfg.test.pre_trained:

@@ -50,10 +50,11 @@ class TBNModel(nn.Module):
             if self.use_attention:
                 self.pe = nn.Sequential(
                     PositionalEncoding(10, max_len=25, device=device),
-                    nn.Conv1d(1034, 1024, 1),
-                    nn.BatchNorm1d(1024),
+                    nn.Conv1d(1034, 1024, kernel_size=1),
+                    # nn.BatchNorm1d(1024),
+                    nn.GroupNorm(64, 1024),
                 )
-                self.attention_layer = AttentionLayer(1024, 1, 0)
+                self.attention_layer = AttentionLayer(1024, cfg.model.attn_heads, 0.5)
             self.add_module(
                 "fusion", Fusion(in_features, 512, dropout=cfg.model.fusion_dropout)
             )
@@ -103,6 +104,7 @@ class TBNModel(nn.Module):
                 model_dir=model_dir,
                 pretrained=pretrained,
                 is_audio=is_audio,
+                attend=self.use_attention,
             )
 
         return base_model
@@ -174,8 +176,10 @@ class TBNModel(nn.Module):
             feature = base_model(input[m].view(b * n, c, h, w))
             if m == "Audio" and self.use_attention:
                 feature = self.pe(feature)
-                feature = feature.transpose(1,2).transpose(0,1)
-                feature, att_wts = self.attention_layer(features[0].unsqueeze(0), feature, feature)
+                feature = feature.transpose(1, 2).transpose(0, 1)
+                feature, att_wts = self.attention_layer(
+                    features[0].unsqueeze(0), feature, feature
+                )
                 feature = feature.squeeze(0)
             features.extend([feature])
         features = torch.cat(features, dim=1)

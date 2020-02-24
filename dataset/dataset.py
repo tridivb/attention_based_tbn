@@ -126,6 +126,8 @@ class Video_Dataset(Dataset):
 
         indices = {}
         for m in self.modality:
+            # TODO This is ugly. Make it robust when using attention or create a different dataset
+            # class for sampling with attention
             indices[m] = self._get_offsets(vid_record, m)
             # Read individual flow files
             if m == "Flow" and not self.read_flow_pickle:

@@ -2,6 +2,7 @@
 model:
   arch: "bninception"
   use_attention: True
+  attn_heads: 4
   freeze_base: True
   freeze_mode: "partialbn"
   num_classes: { verb: 125, noun: 352 }

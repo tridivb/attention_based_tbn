@@ -19,7 +19,7 @@ class BNInception(BNInception):
         """
 
         adaptiveAvgPoolWidth = features.shape[2:]
-        if self.is_audio:
+        if self.is_audio and self.attend:
             # Avg pool the spectrogram along frequency dimension only
             x = F.avg_pool2d(
                 features,
@@ -35,7 +35,12 @@ class BNInception(BNInception):
 
 
 def bninception(
-    in_channels, modality, pretrained="imagenet", model_dir="", is_audio=False
+    in_channels,
+    modality,
+    pretrained="imagenet",
+    model_dir="",
+    is_audio=False,
+    attend=False,
 ):
     """
     Initialize the BNInception model and cut off the final linear layer
@@ -66,6 +71,7 @@ def bninception(
     model = BNInception(num_classes=num_classes)
 
     model.is_audio = is_audio
+    model.attend = attend
     model.feature_size = 1024
 
     # Configure first convolution layer and its weights according to modality and input channels
