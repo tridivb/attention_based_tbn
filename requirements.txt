@@ -1,6 +1,6 @@
 librosa
 numpy
-omegaconf
+hydra-core
 opencv-python
 pandas
 pretrainedmodels
