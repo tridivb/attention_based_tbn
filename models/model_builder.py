@@ -18,7 +18,7 @@ _MODEL_TYPES = {
 }
 
 # Supported loss types
-_LOSS_TYPES = {"CrossEntropy": torch.nn.CrossEntropyLoss, "NLL": torch.nn.NLLLoss}
+_LOSS_TYPES = {"crossentropy": torch.nn.CrossEntropyLoss, "nll": torch.nn.NLLLoss}
 
 
 def build_model(cfg, modality, device):
@@ -37,13 +37,13 @@ def build_model(cfg, modality, device):
     """
 
     assert (
-        cfg.MODEL.ARCH in _MODEL_TYPES.keys()
-    ), "Model type '{}' not supported".format(cfg.MODEL.ARCH)
+        cfg.model.arch in _MODEL_TYPES.keys()
+    ), "Model type '{}' not supported".format(cfg.model.arch)
     assert (
-        cfg.MODEL.LOSS_FN in _LOSS_TYPES.keys()
-    ), "Loss type '{}' not supported".format(cfg.MODEL.LOSS_FN)
-    if len(cfg.GPU_IDS) > 0:
-        num_gpus = len(cfg.GPU_IDS)
+        cfg.model.loss_fn in _LOSS_TYPES.keys()
+    ), "Loss type '{}' not supported".format(cfg.model.loss_fn)
+    if len(cfg.gpu_ids) > 0:
+        num_gpus = len(cfg.gpu_ids)
     else:
         num_gpus = torch.cuda.device_count()
     assert (
@@ -51,14 +51,14 @@ def build_model(cfg, modality, device):
     ), "Cannot use more GPU devices than available"
 
     # Construct the model
-    model = _MODEL_TYPES[cfg.MODEL.ARCH](cfg, modality)
+    model = _MODEL_TYPES[cfg.model.arch](cfg, modality, device)
 
     # Set loss type
-    criterion = _LOSS_TYPES[cfg.MODEL.LOSS_FN]()
+    criterion = _LOSS_TYPES[cfg.model.loss_fn]()
 
     # Use multi-gpus if set in config
     if num_gpus > 1 and device.type == "cuda":
-        device_ids = cfg.GPU_IDS if len(cfg.GPU_IDS) > 1 else None
+        device_ids = cfg.gpu_ids if len(cfg.gpu_ids) > 1 else None
         model = DataParallel(model, device_ids=device_ids)
         # criterion = torch.nn.DataParallel(criterion, device_ids=device_ids)
 

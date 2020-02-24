@@ -58,10 +58,10 @@ def test(
     metric = Metric(cfg, no_batches, device)
 
     model.eval()
-    if cfg.TEST.SAVE_RESULTS:
+    if cfg.test.save_results:
         output = {}
         output["action_id"] = []
-        for key in cfg.MODEL.NUM_CLASSES.keys():
+        for key in cfg.model.num_classes.keys():
             output[key] = []
 
     with torch.no_grad():
@@ -76,14 +76,14 @@ def test(
             if isinstance(target, dict):
                 loss, batch_size = model.get_loss(criterion, target, out)
                 metric.set_metrics(out, target, batch_size, loss)
-            if cfg.TEST.SAVE_RESULTS:
+            if cfg.test.save_results:
                 output["action_id"].extend([action_id])
                 for key in out.keys():
                     output[key].extend([out[key]])
 
     test_loss, test_acc, conf_mat = metric.get_metrics()
 
-    if cfg.TEST.SAVE_RESULTS:
+    if cfg.test.save_results:
         return (test_loss, test_acc, conf_mat, output)
     else:
         return (test_loss, test_acc, conf_mat)
@@ -111,13 +111,13 @@ def run_tester(cfg, logger, modality):
     logger.info("Model initialized.")
     logger.info("----------------------------------------------------------")
 
-    if cfg.TEST.PRE_TRAINED:
-        pre_trained = cfg.TEST.PRE_TRAINED
-    elif cfg.TRAIN.PRE_TRAINED:
-        pre_trained = cfg.TRAIN.PRE_TRAINED
+    if cfg.test.pre_trained:
+        pre_trained = cfg.test.pre_trained
+    elif cfg.train.pre_trained:
+        pre_trained = cfg.train.pre_trained
     else:
         logger.exception(
-            "No pre-trained weights exist. Please set the PRE_TRAINED parameter for either TRAIN or TEST in config file."
+            "No pre-trained weights exist. Please set the pre_trained parameter for either train or test in config file."
         )
 
     logger.info("Loading pre-trained weights {}...".format(pre_trained))
@@ -134,43 +134,43 @@ def run_tester(cfg, logger, modality):
         if m == "RGB":
             test_transforms[m] = torchvision.transforms.Compose(
                 [
-                    Rescale(cfg.DATA.TEST_SCALE_SIZE),
-                    CenterCrop(cfg.DATA.TEST_CROP_SIZE),
+                    Rescale(cfg.data.test_scale_size),
+                    CenterCrop(cfg.data.test_crop_size),
                     Stack(m),
                     ToTensor(),
-                    Normalize(cfg.DATA.RGB_MEAN, cfg.DATA.RGB_STD),
+                    Normalize(cfg.data.rgb_mean, cfg.data.rgb_std),
                 ]
             )
         elif m == "Flow":
             test_transforms[m] = torchvision.transforms.Compose(
                 [
-                    Rescale(cfg.DATA.TEST_SCALE_SIZE),
-                    CenterCrop(cfg.DATA.TEST_CROP_SIZE),
+                    Rescale(cfg.data.test_scale_size),
+                    CenterCrop(cfg.data.test_crop_size),
                     Stack(m),
                     ToTensor(),
-                    Normalize(cfg.DATA.FLOW_MEAN, cfg.DATA.FLOW_STD),
+                    Normalize(cfg.data.flow_mean, cfg.data.flow_std),
                 ]
             )
         elif m == "Audio":
             test_transforms[m] = torchvision.transforms.Compose(
                 [Stack(m), ToTensor(is_audio=True)]
             )
-    logger.info("No of files to test: {}".format(len(cfg.TEST.ANNOTATION_FILE)))
+    logger.info("No of files to test: {}".format(len(cfg.test.annotation_file)))
     logger.info("----------------------------------------------------------")
 
-    if cfg.TEST.SAVE_RESULTS:
-        assert len(cfg.TEST.ANNOTATION_FILE) == len(
-            cfg.TEST.RESULTS_FILE
+    if cfg.test.save_results:
+        assert len(cfg.test.annotation_file) == len(
+            cfg.test.results_file
         ), "Number of annotations files to test ({}) and number of result files ({}) do not match".format(
-            len(cfg.TEST.ANNOTATION_FILE), len(cfg.TEST.RESULTS_FILE)
+            len(cfg.test.annotation_file), len(cfg.test.results_file)
         )
 
     start_time = time.time()
-    
-    for idx, annotation in enumerate(cfg.TEST.ANNOTATION_FILE):
-        if cfg.TEST.VID_LIST:
+
+    for idx, annotation in enumerate(cfg.test.annotation_file):
+        if cfg.test.vid_list:
             logger.info("Reading list of test videos...")
-            with open(cfg.TEST.VID_LIST) as f:
+            with open(cfg.test.vid_list) as f:
                 test_list = [x.strip() for x in f.readlines() if len(x.strip()) > 0]
             logger.info("Done.")
             logger.info("----------------------------------------------------------")
@@ -189,9 +189,9 @@ def run_tester(cfg, logger, modality):
 
         test_loader = DataLoader(
             test_dataset,
-            batch_size=cfg.TEST.BATCH_SIZE,
+            batch_size=cfg.test.batch_size,
             shuffle=False,
-            num_workers=cfg.NUM_WORKERS,
+            num_workers=cfg.num_workers,
         )
         logger.info("Done.")
         logger.info("----------------------------------------------------------")
@@ -204,16 +204,16 @@ def run_tester(cfg, logger, modality):
         logger.info("----------------------------------------------------------")
         logger.info("Test_Loss: {}".format(results[0]))
         logger.info("----------------------------------------------------------")
-        logger.info("Accuracy Top {}:".format(cfg.VAL.TOPK))
+        logger.info("Accuracy Top {}:".format(cfg.val.topk))
         logger.info(json.dumps(results[1], indent=2))
         logger.info("----------------------------------------------------------")
 
-        if cfg.TEST.SAVE_RESULTS:
+        if cfg.test.save_results:
             output_dict = results[3]
-            if cfg.DATA.OUT_DIR:
-                out_file = os.path.join(cfg.DATA.OUT_DIR, cfg.TEST.RESULTS_FILE[idx])
+            if cfg.data.out_dir:
+                out_file = os.path.join(cfg.data.out_dir, cfg.test.results_file[idx])
             else:
-                out_file = os.path.join("./", cfg.TEST.RESULTS_FILE[idx])
+                out_file = os.path.join("./", cfg.test.results_file[idx])
             try:
                 save_scores(output_dict, out_file)
                 logger.info("Saved results to {}".format(out_file))

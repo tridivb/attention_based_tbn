@@ -4,6 +4,7 @@ import argparse
 import torch
 from omegaconf import OmegaConf
 import numpy as np
+import hydra
 
 from tools.train import run_trainer
 from tools.test import run_tester
@@ -12,25 +13,16 @@ from utils.misc import get_modality
 
 torch.multiprocessing.set_sharing_strategy("file_system")
 
-def parse_args():
-    parser = argparse.ArgumentParser(description="main.py")
-    parser.add_argument(
-        "cfg", help="cfg model file (/path/to/config.yaml)", type=str,
-    )
 
-    return parser.parse_args()
+@hydra.main(config_path="config/config.yaml")
+def main(cfg):
 
-
-def main(args):
-
-    cfg = OmegaConf.load(args.cfg)
-
-    np.random.seed(cfg.DATA.MANUAL_SEED)
-    torch.manual_seed(cfg.DATA.MANUAL_SEED)
+    np.random.seed(cfg.data.manual_seed)
+    torch.manual_seed(cfg.data.manual_seed)
 
     modality = get_modality(cfg)
 
-    logger, writer = setup_log(cfg, modality)
+    logger, writer = setup_log(modality)
 
     logger.info("Initializing the pipeline...")
     logger.info(cfg.pretty())
@@ -38,11 +30,11 @@ def main(args):
     logger.info("----------------------------------------------------------")
 
     try:
-        if cfg.TRAIN.TRAIN_ENABLE:
+        if cfg.train.train_enable:
             logger.info("Training the model.")
             run_trainer(cfg, logger, modality, writer)
 
-        if cfg.TEST.TEST_ENABLE:
+        if cfg.test.test_enable:
             logger.info("Evaluating the model.")
             run_tester(cfg, logger, modality)
     except Exception as e:
@@ -50,5 +42,5 @@ def main(args):
 
 
 if __name__ == "__main__":
-    args = parse_args()
-    main(args)
+
+    main()

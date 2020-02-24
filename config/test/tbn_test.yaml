@@ -1,0 +1,11 @@
+# test parameters
+test:
+  test_enable: True
+  annotation_file: ["/media/data/tridiv/epic_kitchens/annotations/EPIC_train_action_labels.csv"]
+  vid_list: "/media/remote_home/tridiv/attention_based_tbn/data/val_split_seen.txt"
+  batch_size: 6
+  topk: [1, 5]
+  num_segments: 25
+  save_results: False
+  results_file: [""]
+  pre_trained: "/media/data/tridiv/epic/tbn_weights/seen/epic_tbn_bninception_RGB_Audio_best.pth"
