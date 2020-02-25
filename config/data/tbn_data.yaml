@@ -1,6 +1,5 @@
 # dataset parameters
 data:
-  data_dir: "/media/data/tridiv/epic"
   dataset: "epic"
   rgb:
     enable: True

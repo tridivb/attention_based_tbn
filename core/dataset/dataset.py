@@ -46,7 +46,7 @@ class Video_Dataset(Dataset):
         mode="train",
     ):
         self.cfg = cfg
-        self.root_dir = cfg.data.data_dir
+        self.root_dir = cfg.data_dir
         self.rgb_prefix = cfg.data.rgb.dir_prefix
         self.flow_prefix = cfg.data.flow.dir_prefix
         self.audio_prefix = cfg.data.audio.dir_prefix
@@ -83,11 +83,11 @@ class Video_Dataset(Dataset):
 
         if annotation_file.endswith("csv"):
             self.annotations = pd.read_csv(
-                os.path.join(cfg.data.data_dir, annotation_file)
+                os.path.join(self.root_dir, annotation_file)
             )
         elif annotation_file.endswith("pkl"):
             self.annotations = pd.read_pickle(
-                os.path.join(cfg.data.data_dir, annotation_file)
+                os.path.join(self.root_dir, annotation_file)
             )
         if vid_list:
             self.annotations = self.annotations.query("video_id in @vid_list")

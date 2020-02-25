@@ -74,8 +74,8 @@ def test(
             out = model(data)
 
             if isinstance(target, dict):
-                loss, batch_size = model.get_loss(criterion, target["class"], out)
-                metric.set_metrics(out, target["class"], batch_size, loss)
+                loss, batch_size = model.get_loss(criterion, target, out)
+                metric.set_metrics(out, target, batch_size, loss)
             if cfg.test.save_results:
                 output["action_id"].extend([action_id])
                 for key in out.keys():

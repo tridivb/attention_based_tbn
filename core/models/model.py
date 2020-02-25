@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import torchvision
 import numpy as np
+from collections import OrderedDict
 
 from .vgg import VGG
 from .resnet import Resnet
@@ -195,6 +196,9 @@ class TBNModel(nn.Module):
 
         out = self._aggregate_scores(out, new_shape=(b, n, -1))
 
+        if self.use_attention and self.cfg.model.attention.use_prior:
+            out["weights"] = att_wts
+
         return out
 
     def get_loss(self, criterion, target, preds):
@@ -221,14 +225,26 @@ class TBNModel(nn.Module):
         """
         assert isinstance(target, dict)
         assert isinstance(preds, dict)
+        assert isinstance(criterion, dict)
 
-        loss = {"total": 0}
+        loss = {"all_class": 0}
 
-        for key in target.keys():
-            labels = target[key]
-            batch_size = target[key].shape[0]
-            loss[key] = criterion(preds[key], labels)
-            loss["total"] += loss[key]
+        for key in target["class"].keys():
+            labels = target["class"][key]
+            batch_size = target["class"][key].shape[0]
+            loss[key] = criterion["crossentropy"](preds[key], labels)
+            loss["all_class"] += loss[key]
+
+        b, n, _, _ = target["weights"].shape
+        assert preds["weights"].shape[0] == b * n
+        gt_wts = target["weights"].reshape(b * n, -1)
+        wts = preds["weights"].reshape(b * n, -1)
+
+        loss["total"] = loss["all_class"]
+
+        if self.use_attention and self.cfg.model.attention.use_prior:
+            loss["prior"] = criterion["prior"](wts, gt_wts)
+            loss["total"] += self.cfg.model.attention.wt_multiplier * loss["prior"]
 
         return loss, batch_size
 
@@ -277,7 +293,7 @@ class Classifier(nn.Module):
             torch.nn.init.constant_(getattr(self, cls).bias, 0)
 
     def forward(self, input):
-        out = {}
+        out = OrderedDict()
         for cls in self.num_classes:
             classifier = getattr(self, cls)
             out[cls] = classifier(input)

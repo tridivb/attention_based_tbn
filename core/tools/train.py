@@ -68,8 +68,8 @@ def train(
 
         out = model(data)
 
-        loss, batch_size = model.get_loss(criterion, target["class"], out)
-        metric.set_metrics(out, target["class"], batch_size, loss)
+        loss, batch_size = model.get_loss(criterion, target, out)
+        metric.set_metrics(out, target, batch_size, loss)
         loss["total"].backward()
         loss_tracker += loss["total"].item()
 
@@ -141,8 +141,8 @@ def validate(
 
             out = model(data)
 
-            loss, batch_size = model.get_loss(criterion, target["class"], out)
-            metric.set_metrics(out, target["class"], batch_size, loss)
+            loss, batch_size = model.get_loss(criterion, target, out)
+            metric.set_metrics(out, target, batch_size, loss)
 
     val_loss, val_acc, conf_mat = metric.get_metrics()
 
@@ -387,9 +387,9 @@ def run_trainer(cfg, logger, modality, writer):
         hours, minutes, seconds = get_time_diff(epoch_start_time, time.time())
 
         logger.info("----------------------------------------------------------")
-        logger.info(
-            f"Epoch: [{epoch + 1}/{epochs}] || Train_loss: {train_loss} || Val_Loss: {val_loss}"
-        )
+        logger.info(f"Epoch: [{epoch + 1}/{epochs}]")
+        logger.info(f"Train_loss: {train_loss}")
+        logger.info(f"Val_Loss: {val_loss}")
         logger.info("----------------------------------------------------------")
         logger.info(f"Epoch Time: {hours} hours, {minutes} minutes, {seconds} seconds")
         logger.info("----------------------------------------------------------")
