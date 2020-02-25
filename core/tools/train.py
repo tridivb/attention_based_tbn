@@ -11,12 +11,10 @@ from tqdm import tqdm
 from torch.utils.data.dataloader import DataLoader
 from collections import OrderedDict
 
-from models.model_builder import build_model
-from dataset.dataset import Video_Dataset
-from utils.misc import get_time_diff, save_checkpoint
-from utils.plot import Plotter
-from utils.metric import Metric
-from dataset.transform import *
+from core.models import build_model
+from core.dataset import Video_Dataset
+from core.utils import get_time_diff, save_checkpoint, Plotter, Metric
+from core.dataset.transform import *
 
 
 def train(
@@ -178,22 +176,24 @@ def run_trainer(cfg, logger, modality, writer):
     logger.info(model)
     logger.info("----------------------------------------------------------")
 
-    if cfg.train.optim.lower() == "sgd":
+    if cfg.train.optim.type.lower() == "sgd":
         optimizer = optim.SGD(
             model.parameters(),
-            cfg.train.lr,
-            momentum=cfg.train.momentum,
-            weight_decay=cfg.train.weight_decay,
+            cfg.train.optim.lr,
+            momentum=cfg.train.optim.momentum,
+            weight_decay=cfg.train.optim.weight_decay,
         )
         lr_scheduler = optim.lr_scheduler.MultiStepLR(
-            optimizer, milestones=cfg.train.lr_steps, gamma=cfg.train.lr_decay
+            optimizer,
+            milestones=cfg.train.scheduler.lr_steps,
+            gamma=cfg.train.scheduler.lr_decay,
         )
-    elif cfg.train.optim.lower() == "adam":
+    elif cfg.train.optim.type.lower() == "adam":
         optimizer = optim.Adam(
             model.parameters(),
-            cfg.train.lr,
+            cfg.train.optim.lr,
             betas=(0.9, 0.999),
-            weight_decay=cfg.train.weight_decay,
+            weight_decay=cfg.train.optim.weight_decay,
         )
         lr_scheduler = None
 
@@ -225,14 +225,19 @@ def run_trainer(cfg, logger, modality, writer):
     checkpoint_name = "tbn_{}_{}.pth".format(cfg.model.arch, "_".join(modality))
     if cfg.data.dataset:
         checkpoint_name = "_".join([cfg.data.dataset, checkpoint_name])
-    checkpoint = os.path.join(cfg.model.checkpoint_dir, checkpoint_name)
-    os.makedirs(cfg.model.checkpoint_dir, exist_ok=True)
+    checkpoint = os.path.join(
+        cfg.out_dir, cfg.model.checkpoint_dir, cfg.exp_name, checkpoint_name
+    )
+    os.makedirs(os.path.split(checkpoint)[0], exist_ok=True)
 
     logger.info("Reading list of training and validation videos...")
-    with open(cfg.train.vid_list) as f:
+    file_dir = os.path.dirname(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    )
+    with open(os.path.join(file_dir, cfg.train.vid_list)) as f:
         train_list = [x.strip() for x in f.readlines() if len(x.strip()) > 0]
 
-    with open(cfg.val.vid_list) as f:
+    with open(os.path.join(file_dir, cfg.val.vid_list)) as f:
         val_list = [x.strip() for x in f.readlines() if len(x.strip()) > 0]
 
     logger.info("Done.")
@@ -248,7 +253,7 @@ def run_trainer(cfg, logger, modality, writer):
                     RandomHorizontalFlip(prob=0.5),
                     Stack(m),
                     ToTensor(),
-                    Normalize(cfg.data.rgb_mean, cfg.data.rgb_std),
+                    Normalize(cfg.data.rgb.mean, cfg.data.rgb.std),
                 ]
             )
             val_transforms[m] = torchvision.transforms.Compose(
@@ -257,7 +262,7 @@ def run_trainer(cfg, logger, modality, writer):
                     CenterCrop(cfg.data.test_crop_size),
                     Stack(m),
                     ToTensor(),
-                    Normalize(cfg.data.rgb_mean, cfg.data.rgb_std),
+                    Normalize(cfg.data.rgb.mean, cfg.data.rgb.std),
                 ]
             )
         elif m == "Flow":
@@ -267,7 +272,7 @@ def run_trainer(cfg, logger, modality, writer):
                     RandomHorizontalFlip(prob=0.5),
                     Stack(m),
                     ToTensor(),
-                    Normalize(cfg.data.flow_mean, cfg.data.flow_std),
+                    Normalize(cfg.data.flow.mean, cfg.data.flow.std),
                 ]
             )
             val_transforms[m] = torchvision.transforms.Compose(
@@ -276,7 +281,7 @@ def run_trainer(cfg, logger, modality, writer):
                     CenterCrop(cfg.data.test_crop_size),
                     Stack(m),
                     ToTensor(),
-                    Normalize(cfg.data.flow_mean, cfg.data.flow_std),
+                    Normalize(cfg.data.flow.mean, cfg.data.flow.std),
                 ]
             )
         elif m == "Audio":
@@ -338,7 +343,7 @@ def run_trainer(cfg, logger, modality, writer):
         train_loss_hist.append(train_loss)
         logger.info("Validation in progress...")
 
-        if cfg.val.val_enable:
+        if cfg.val.enable:
             val_loss, val_acc, confusion_matrix = validate(
                 cfg, model, val_loader, criterion, modality, logger, device
             )
@@ -351,7 +356,7 @@ def run_trainer(cfg, logger, modality, writer):
         if lr_scheduler:
             lr_scheduler.step()
 
-        if cfg.val.val_enable and val_acc["all_class"][0] > best_acc:
+        if cfg.val.enable and val_acc["all_class"][0] > best_acc:
             save_checkpoint(
                 model,
                 optimizer,

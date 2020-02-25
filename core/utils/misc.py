@@ -16,11 +16,11 @@ def get_modality(cfg):
 
     modality = []
 
-    if cfg.data.use_rgb:
+    if cfg.data.rgb.enable:
         modality.append("RGB")
-    if cfg.data.use_flow:
+    if cfg.data.flow.enable:
         modality.append("Flow")
-    if cfg.data.use_audio:
+    if cfg.data.audio.enable:
         modality.append("Audio")
 
     return modality

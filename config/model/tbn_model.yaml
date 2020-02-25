@@ -1,12 +1,18 @@
 # model parameters
 model:
   arch: "bninception"
-  use_attention: True
-  attn_heads: 4
+  attention:
+    enable: True
+    attn_heads: 4
+    attn_drouput: 0.5
+  resnet:
+    depth: 101
+  vgg:
+    type: "16"
   freeze_base: True
   freeze_mode: "partialbn"
   num_classes: { verb: 125, noun: 352 }
   agg_type: "avg"
   fusion_dropout: 0.5
   loss_fn: "crossentropy"
-  checkpoint_dir: "/media/data/tridiv/epic/tbn_weights/attention/seen"
+  checkpoint_dir: "tbn_weights"

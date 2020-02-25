@@ -47,21 +47,23 @@ class Video_Dataset(Dataset):
     ):
         self.cfg = cfg
         self.root_dir = cfg.data.data_dir
-        self.rgb_prefix = cfg.data.rgb_dir_prefix
-        self.flow_prefix = cfg.data.flow_dir_prefix
-        self.audio_prefix = cfg.data.audio_dir_prefix
+        self.rgb_prefix = cfg.data.rgb.dir_prefix
+        self.flow_prefix = cfg.data.flow.dir_prefix
+        self.audio_prefix = cfg.data.audio.dir_prefix
 
-        self.vis_file_ext = cfg.data.frame_file_ext
-        self.aud_file_ext = cfg.data.audio_file_ext
+        self.vis_file_ext = cfg.data.rgb.file_ext
+        self.aud_file_ext = cfg.data.audio.file_ext
 
-        self.aud_sampling_rate = cfg.data.sampling_rate
+        self.aud_sampling_rate = cfg.data.audio.sampling_rate
+        self.audio_length = cfg.data.audio.audio_length
+        self.vid_fps = cfg.data.vid_fps
 
         self.modality = modality
         self.mode = mode
 
-        self.read_flow_pickle = cfg.data.read_flow_pickle
-        self.read_audio_pickle = cfg.data.read_audio_pickle
-        self.use_attention = cfg.model.use_attention
+        self.read_flow_pickle = cfg.data.flow.read_flow_pickle
+        self.read_audio_pickle = cfg.data.audio.read_audio_pickle
+        self.use_attention = cfg.model.attention.enable
 
         self.transform = transform
 
@@ -75,14 +77,18 @@ class Video_Dataset(Dataset):
         self.frame_len = {}
         for m in self.modality:
             if m == "Flow":
-                self.frame_len[m] = cfg.data.flow_win_length
+                self.frame_len[m] = cfg.data.flow.win_length
             else:
                 self.frame_len[m] = 1
 
         if annotation_file.endswith("csv"):
-            self.annotations = pd.read_csv(annotation_file)
+            self.annotations = pd.read_csv(
+                os.path.join(cfg.data.data_dir, annotation_file)
+            )
         elif annotation_file.endswith("pkl"):
-            self.annotations = pd.read_pickle(annotation_file)
+            self.annotations = pd.read_pickle(
+                os.path.join(cfg.data.data_dir, annotation_file)
+            )
         if vid_list:
             self.annotations = self.annotations.query("video_id in @vid_list")
 
@@ -391,7 +397,7 @@ class Video_Dataset(Dataset):
 
         """
 
-        min_len = int(self.cfg.data.audio_length * self.aud_sampling_rate)
+        min_len = int(self.audio_length * self.aud_sampling_rate)
         max_len = aud_sample.shape[0]
 
         if max_len < min_len:
@@ -399,11 +405,9 @@ class Video_Dataset(Dataset):
 
         # Find the starting temporal offset of the audio sample
         # if self.use_attention:
-        #     start_sec = float(ann_start_frame / self.cfg.data.vid_fps)
+        #     start_sec = float(ann_start_frame / self.vid_fps)
         # else:
-        start_sec = float(frame_idx / self.cfg.data.vid_fps) - (
-            self.cfg.data.audio_length / 2
-        )
+        start_sec = float(frame_idx / self.vid_fps) - (self.audio_length / 2)
         # Find the starting frame of the audio sample array
         start_frame = int(max(0, start_sec * self.aud_sampling_rate))
         if start_frame + min_len > max_len:
@@ -480,9 +484,9 @@ class Video_Dataset(Dataset):
         """
         gt_attn_wts = cv2.getGaussianKernel(25, sigma=1.5)
         mean_loc = gt_attn_wts.shape[0] // 2
-        ind_time = float(index / self.cfg.data.vid_fps)
+        ind_time = float(index / self.vid_fps)
         diff = ind_time - start_time
-        new_mean_loc = round(diff * 25 / self.cfg.data.audio_length)
+        new_mean_loc = round(diff * 25 / self.audio_length)
         if new_mean_loc <= gt_attn_wts.shape[0]:
             gt_attn_wts = np.roll(gt_attn_wts, new_mean_loc - mean_loc)
             if new_mean_loc - 6 > 0:

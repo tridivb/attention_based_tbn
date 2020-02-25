@@ -1,6 +1,6 @@
 hydra:
   run:
-    dir: "${out_dir}/${exp_name}/run_${model.arch}_${data.dataset}_${now:%Y_%m_%d}_${now:%H_%M_%S}"
+    dir: "${out_dir}/log/${exp_name}/run_${model.arch}_${data.dataset}_${now:%Y_%m_%d}_${now:%H_%M_%S}"
   job_logging:
     formatters:
       simple:

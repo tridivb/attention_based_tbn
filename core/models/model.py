@@ -29,7 +29,7 @@ class TBNModel(nn.Module):
         self.modality = modality
         self.base_model_name = cfg.model.arch
         self.num_classes = cfg.model.num_classes
-        self.use_attention = cfg.model.use_attention
+        self.use_attention = cfg.model.attention.enable
 
         if cfg.model.agg_type.lower() == "avg":
             self.agg_type = "avg"
@@ -54,7 +54,9 @@ class TBNModel(nn.Module):
                     # nn.BatchNorm1d(1024),
                     nn.GroupNorm(64, 1024),
                 )
-                self.attention_layer = AttentionLayer(1024, cfg.model.attn_heads, 0.5)
+                self.attention_layer = AttentionLayer(
+                    1024, cfg.model.attention.attn_heads, 0.5
+                )
             self.add_module(
                 "fusion", Fusion(in_features, 512, dropout=cfg.model.fusion_dropout)
             )
@@ -87,15 +89,17 @@ class TBNModel(nn.Module):
         elif modality == "Audio":
             in_channels = 1
 
-        model_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        model_dir = os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        )
         model_dir = os.path.join(model_dir, "weights")
 
         is_audio = True if modality == "Audio" else False
 
         if "vgg" in self.base_model_name:
-            base_model = VGG(self.base_model_name, modality, in_channels)
+            base_model = VGG(self.cfg.model.vgg.type, modality, in_channels)
         elif "resnet" in self.base_model_name:
-            base_model = Resnet(self.base_model_name, modality, in_channels)
+            base_model = Resnet(cfg.model.resnet.depth, modality, in_channels)
         elif self.base_model_name == "bninception":
             pretrained = "kinetics" if modality == "Flow" else "imagenet"
             base_model = bninception(
