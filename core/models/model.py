@@ -235,14 +235,13 @@ class TBNModel(nn.Module):
             loss[key] = criterion["crossentropy"](preds[key], labels)
             loss["all_class"] += loss[key]
 
-        b, n, _, _ = target["weights"].shape
-        assert preds["weights"].shape[0] == b * n
-        gt_wts = target["weights"].reshape(b * n, -1)
-        wts = preds["weights"].reshape(b * n, -1)
-
         loss["total"] = loss["all_class"]
 
         if self.use_attention and self.cfg.model.attention.use_prior:
+            b, n, _, _ = target["weights"].shape
+            assert preds["weights"].shape[0] == b * n
+            gt_wts = target["weights"].reshape(b * n, -1)
+            wts = preds["weights"].reshape(b * n, -1)
             loss["prior"] = criterion["prior"](wts, gt_wts)
             loss["total"] += self.cfg.model.attention.wt_multiplier * loss["prior"]
 
