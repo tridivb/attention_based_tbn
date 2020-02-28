@@ -55,7 +55,9 @@ class TBNModel(nn.Module):
                     nn.GroupNorm(64, 1024),
                 )
                 self.attention_layer = AttentionLayer(
-                    1024, cfg.model.attention.attn_heads, cfg.model.attention.attn_dropout
+                    1024,
+                    cfg.model.attention.attn_heads,
+                    cfg.model.attention.attn_dropout,
                 )
             self.add_module(
                 "fusion", Fusion(in_features, 512, dropout=cfg.model.fusion_dropout)
@@ -226,7 +228,7 @@ class TBNModel(nn.Module):
         assert isinstance(preds, dict)
         assert isinstance(criterion, dict)
 
-        loss = {"all_class": 0}
+        loss = {"total": 0, "all_class": 0}
 
         for key in target["class"].keys():
             labels = target["class"][key]
@@ -234,7 +236,7 @@ class TBNModel(nn.Module):
             loss[key] = criterion["crossentropy"](preds[key], labels)
             loss["all_class"] += loss[key]
 
-        loss["total"] = loss["all_class"]
+        loss["total"] += loss["all_class"]
 
         if self.use_attention and self.cfg.model.attention.use_prior:
             b, n, _, _ = target["weights"].shape
