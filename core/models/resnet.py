@@ -8,7 +8,8 @@ class Resnet(nn.Module):
     """
     Resnet module
     """
-    def __init__(self, model_depth, modality, in_channels, depth):
+
+    def __init__(self, model_depth, modality, in_channels):
         super(Resnet, self).__init__()
 
         if model_depth == 18:
@@ -24,7 +25,6 @@ class Resnet(nn.Module):
 
         if modality != "RGB":
             weight = self.model.conv1.weight.mean(dim=1).unsqueeze(dim=1)
-            bias = self.model.conv1.bias
             self.model.conv1 = nn.Conv2d(
                 in_channels,
                 self.model.conv1.out_channels,
@@ -33,8 +33,7 @@ class Resnet(nn.Module):
                 padding=self.model.conv1.padding,
                 bias=self.model.conv1.bias,
             )
-            self.model.conv1.weight = weight
-            self.model.conv1.bias = bias
+            self.model.conv1.weight = torch.nn.Parameter(weight)
 
         self.feature_size = self.model.fc.in_features
         self.model = nn.Sequential(*list(self.model.children())[:-1])

@@ -4,7 +4,7 @@ model:
   attention:
     enable: True
     attn_heads: 4
-    attn_drouput: 0.5
+    attn_dropout: 0.5
     use_prior: True
     wt_loss: "kl"
     wt_multiplier: 0.5

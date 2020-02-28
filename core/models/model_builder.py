@@ -6,20 +6,13 @@ from .dataparallel import DataParallel
 
 # Supported model types
 _MODEL_TYPES = {
-    "vgg11": TBNModel,
-    "vgg11bn": TBNModel,
-    "vgg16": TBNModel,
-    "vgg16bn": TBNModel,
-    "resnet18": TBNModel,
-    "resnet34": TBNModel,
-    "resnet50": TBNModel,
-    "resnet101": TBNModel,
-    "resnet152": TBNModel,
+    "vgg": TBNModel,
+    "resnet": TBNModel,
     "bninception": TBNModel,
 }
 
 # Supported loss types
-_LOSS_TYPES = {"crossentropy": torch.nn.CrossEntropyLoss, "nll": torch.nn.NLLLoss, "kl": torch.nn.KLDivLoss}
+_LOSS_TYPES = {"crossentropy": torch.nn.CrossEntropyLoss, "nll": torch.nn.NLLLoss, "kl": torch.nn.KLDivLoss, "mse": torch.nn.MSELoss}
 
 
 def build_model(cfg, modality, device):
@@ -59,7 +52,7 @@ def build_model(cfg, modality, device):
     criterion[cfg.model.loss_fn] = _LOSS_TYPES[cfg.model.loss_fn]()
 
     if cfg.model.attention.enable and cfg.model.attention.use_prior:
-        criterion["prior"] = _LOSS_TYPES[cfg.model.attention.wt_loss](reduction="batchmean")
+        criterion["prior"] = _LOSS_TYPES[cfg.model.attention.wt_loss](reduction="mean")
 
     # Use multi-gpus if set in config
     if num_gpus > 1 and device.type == "cuda":

@@ -52,11 +52,10 @@ class TBNModel(nn.Module):
                 self.pe = nn.Sequential(
                     PositionalEncoding(10, max_len=25, device=device),
                     nn.Conv1d(1034, 1024, kernel_size=1),
-                    # nn.BatchNorm1d(1024),
                     nn.GroupNorm(64, 1024),
                 )
                 self.attention_layer = AttentionLayer(
-                    1024, cfg.model.attention.attn_heads, 0.5
+                    1024, cfg.model.attention.attn_heads, cfg.model.attention.attn_dropout
                 )
             self.add_module(
                 "fusion", Fusion(in_features, 512, dropout=cfg.model.fusion_dropout)
@@ -100,7 +99,7 @@ class TBNModel(nn.Module):
         if "vgg" in self.base_model_name:
             base_model = VGG(self.cfg.model.vgg.type, modality, in_channels)
         elif "resnet" in self.base_model_name:
-            base_model = Resnet(cfg.model.resnet.depth, modality, in_channels)
+            base_model = Resnet(self.cfg.model.resnet.depth, modality, in_channels)
         elif self.base_model_name == "bninception":
             pretrained = "kinetics" if modality == "Flow" else "imagenet"
             base_model = bninception(
@@ -240,9 +239,9 @@ class TBNModel(nn.Module):
         if self.use_attention and self.cfg.model.attention.use_prior:
             b, n, _, _ = target["weights"].shape
             assert preds["weights"].shape[0] == b * n
-            gt_wts = target["weights"].reshape(b * n, -1)
+            prior = target["weights"].reshape(b * n, -1)
             wts = preds["weights"].reshape(b * n, -1)
-            loss["prior"] = criterion["prior"](wts, gt_wts)
+            loss["prior"] = criterion["prior"](wts, prior)
             loss["total"] += self.cfg.model.attention.wt_multiplier * loss["prior"]
 
         return loss, batch_size
