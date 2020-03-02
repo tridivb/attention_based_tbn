@@ -21,6 +21,7 @@ data:
     dir_prefix: "audio_pickle"
     sampling_rate: 24000
     audio_length: 4.0
+    spec_type: "logms"
     file_ext: "wav"
   vid_fps: 60
   out_dir: "/media/data/tridiv/epic/"

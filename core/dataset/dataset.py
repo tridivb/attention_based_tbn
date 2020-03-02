@@ -57,6 +57,7 @@ class Video_Dataset(Dataset):
         self.aud_sampling_rate = cfg.data.audio.sampling_rate
         self.audio_length = cfg.data.audio.audio_length
         self.vid_fps = cfg.data.vid_fps
+        self.spec_type = cfg.data.audio.spec_type
 
         self.modality = modality
         self.mode = mode
@@ -82,9 +83,7 @@ class Video_Dataset(Dataset):
                 self.frame_len[m] = 1
 
         if annotation_file.endswith("csv"):
-            self.annotations = pd.read_csv(
-                os.path.join(self.root_dir, annotation_file)
-            )
+            self.annotations = pd.read_csv(os.path.join(self.root_dir, annotation_file))
         elif annotation_file.endswith("pkl"):
             self.annotations = pd.read_pickle(
                 os.path.join(self.root_dir, annotation_file)
@@ -445,16 +444,30 @@ class Video_Dataset(Dataset):
         nperseg = int(round(window_size * self.aud_sampling_rate / 1e3))
         noverlap = int(round(step_size * self.aud_sampling_rate / 1e3))
 
-        spec = lr.stft(
-            sample,
-            n_fft=511,
-            window="hann",
-            hop_length=noverlap,
-            win_length=nperseg,
-            pad_mode="constant",
-        )
+        if self.spec_type == "stft":
+            spec = lr.stft(
+                sample,
+                n_fft=511,
+                window="hann",
+                hop_length=noverlap,
+                win_length=nperseg,
+                pad_mode="constant",
+            )
+            spec = np.log(np.real(spec * np.conj(spec)) + eps)
+        elif self.spec_type == "logms":
+            spec = lr.feature.melspectrogram(
+                sample,
+                sr=self.aud_sampling_rate,
+                n_fft=511,
+                window="hann",
+                hop_length=noverlap,
+                win_length=nperseg,
+                pad_mode="constant",
+            )
+            spec = lr.power_to_db(spec, ref=np.max)
+        else:
+            raise Exception("Unknown spectrogram representation")
 
-        spec = np.log(np.real(spec * np.conj(spec)) + eps)
         return spec
 
     def _transform_data(self, img_stack, modality):
