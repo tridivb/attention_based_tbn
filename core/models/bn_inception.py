@@ -2,9 +2,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import os
-
 import pretrainedmodels as ptm
 from pretrainedmodels.models.bninception import BNInception
+
+from .bn_inception_audio import BNInception_Audio
 
 
 class BNInception(BNInception):
@@ -68,24 +69,39 @@ def bninception(
 
         data_dict = torch.load(file, map_location="cpu")
 
-    model = BNInception(num_classes=num_classes)
+    if modality == "Audio":
+        # model = BNInception_Audio(num_classes=num_classes, attend=attend)
+        model = BNInception(num_classes=num_classes)
+        model.conv1_7x7_s2 = nn.Conv2d(
+                in_channels, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3)
+            )
+        data_dict["conv1_7x7_s2.weight"] = (
+            data_dict["conv1_7x7_s2.weight"].mean(dim=1).unsqueeze(dim=1)
+        )
+        missing_keys = [
+            k for k in model.state_dict().keys() if k not in data_dict.keys()
+        ]
+        extra_keys = [k for k in data_dict.keys() if k not in model.state_dict().keys()]
+        for key in missing_keys:
+            data_dict[key] = model.state_dict()[key]
+        for key in extra_keys:
+            del data_dict[key]
+    else:
+        model = BNInception(num_classes=num_classes)
+        if modality == "Flow":
+            # Configure first convolution layer and its weights according to modality and input channels
+            model.conv1_7x7_s2 = nn.Conv2d(
+                in_channels, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3)
+            )
 
     model.is_audio = is_audio
     model.attend = attend
     model.feature_size = 1024
 
-    # Configure first convolution layer and its weights according to modality and input channels
-    if modality != "RGB":
-        model.conv1_7x7_s2 = nn.Conv2d(
-            in_channels, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3)
-        )
-        if modality == "Audio":
-            data_dict["conv1_7x7_s2.weight"] = (
-                data_dict["conv1_7x7_s2.weight"].mean(dim=1).unsqueeze(dim=1)
-            )
-
     model.load_state_dict(data_dict)
+    print(f"Model initialized with {pretrained} weights")
 
+    # Remove the linear classficiation layer
     delattr(model, "last_linear")
 
     return model

@@ -140,14 +140,14 @@ class Video_Dataset(Dataset):
                     indices[m].repeat(self.frame_len[m])
                     + np.tile(np.arange(self.frame_len[m]), self.num_segments)
                 ).astype(np.int64)
-                data[m], _ = self._get_frames(vid_record, m, vid_id, frame_indices)
+                data[m], _ = self._get_frames(m, vid_id, frame_indices)
             elif m == "Audio" and self.use_attention:
                 indices[m] = indices["RGB"]
                 data[m], gt_attn_wts = self._get_frames(
-                    vid_record, m, vid_id, indices[m]
+                    m, vid_id, indices[m]
                 )
             else:
-                data[m], _ = self._get_frames(vid_record, m, vid_id, indices[m])
+                data[m], _ = self._get_frames(m, vid_id, indices[m])
             data[m] = self._transform_data(data[m], m)
 
         target["class"] = vid_record.label
@@ -206,7 +206,7 @@ class Video_Dataset(Dataset):
 
         return indices
 
-    def _get_frames(self, record, modality, vid_id, indices):
+    def _get_frames(self, modality, vid_id, indices):
         """
         Helper function to get list of frames for a specific modality
 
@@ -236,12 +236,12 @@ class Video_Dataset(Dataset):
         for ind in indices:
             if modality == "Audio":
                 frame, gt_attn_wt = self._read_frames(
-                    record, ind, vid_id, modality, aud_sample
+                    ind, vid_id, modality, aud_sample
                 )
                 if self.use_attention:
                     gt_attn_wts.extend(gt_attn_wt)
             else:
-                frame = self._read_frames(record, ind, vid_id, modality, aud_sample)
+                frame = self._read_frames(ind, vid_id, modality, aud_sample)
             frames.extend(frame)
 
         if len(gt_attn_wts) > 0:
@@ -249,7 +249,7 @@ class Video_Dataset(Dataset):
 
         return frames, gt_attn_wts
 
-    def _read_frames(self, record, frame_idx, vid_id, modality, aud_sample=None):
+    def _read_frames(self, frame_idx, vid_id, modality, aud_sample=None):
         """
         Helper function to get read images or get spectrogram for an index
 
@@ -274,14 +274,12 @@ class Video_Dataset(Dataset):
             rgb_path = os.path.join(self.root_dir, self.rgb_prefix, vid_id)
             img = cv2.imread(os.path.join(rgb_path, rgb_file_name))
             # Convert to rgb
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             return [img]
         elif modality == "Flow":
             return self._read_flow_frames(frame_idx, vid_id)
         elif modality == "Audio":
             spec, gt_attn_wts = self._get_audio_segment(
-                record.start_frame["Audio"],
-                record.end_frame["Audio"],
                 frame_idx,
                 aud_sample,
             )
@@ -378,7 +376,7 @@ class Video_Dataset(Dataset):
 
         return sample
 
-    def _get_audio_segment(self, ann_start_frame, ann_end_frame, frame_idx, aud_sample):
+    def _get_audio_segment(self, frame_idx, aud_sample):
         """
         Helper function to trim sampled audio and return a spectrogram
 
@@ -402,10 +400,6 @@ class Video_Dataset(Dataset):
         if max_len < min_len:
             aud_sample = np.pad(aud_sample, (0, min_len - max_len))
 
-        # Find the starting temporal offset of the audio sample
-        # if self.use_attention:
-        #     start_sec = float(ann_start_frame / self.vid_fps)
-        # else:
         start_sec = float(frame_idx / self.vid_fps) - (self.audio_length / 2)
         # Find the starting frame of the audio sample array
         start_frame = int(max(0, start_sec * self.aud_sampling_rate))
@@ -508,4 +502,5 @@ class Video_Dataset(Dataset):
                 gt_attn_wts[new_mean_loc + 6 :] = 1e-6
         else:
             gt_attn_wts = np.zeros(gt_attn_wts.shape, dtype=np.float32) + 1e-6
+        # gt_attn_wts = np.ones((25, 1), dtype=np.float32) / 25
         return torch.tensor(gt_attn_wts).float()

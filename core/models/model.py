@@ -133,16 +133,18 @@ class TBNModel(nn.Module):
                 param.requires_grad = False
         elif freeze_mode == "partialbn":
             print(
-                "Freezing the batchnorms of Base Model {} except first layer.".format(
+                "Freezing the batchnorms of Base Model {} except first or new layers.".format(
                     modality
                 )
             )
             for mod_no, mod in enumerate(
                 getattr(self, "Base_{}".format(modality)).children()
             ):
-                if isinstance(mod, torch.nn.BatchNorm2d) and mod_no > 1:
-                    mod.weight.requires_grad = False
-                    mod.bias.requires_grad = False
+                if isinstance(mod, torch.nn.BatchNorm2d):
+                    if (modality == "Audio" and mod_no > 7) or mod_no > 1:
+                        mod.weight.requires_grad = False
+                        mod.bias.requires_grad = False
+                    
 
     def _aggregate_scores(self, scores, new_shape=(1, -1)):
         """
@@ -171,7 +173,7 @@ class TBNModel(nn.Module):
 
         return scores
 
-    def forward(self, input):
+    def forward(self, input, attn_wts):
         """
         Forward pass
         """
@@ -181,12 +183,14 @@ class TBNModel(nn.Module):
             base_model = getattr(self, "Base_{}".format(m))
             feature = base_model(input[m].view(b * n, c, h, w))
             if m == "Audio" and self.use_attention:
-                feature = self.pe(feature)
-                feature = feature.transpose(1, 2).transpose(0, 1)
-                feature, att_wts = self.attention_layer(
-                    features[0].unsqueeze(0), feature, feature
-                )
-                feature = feature.squeeze(0)
+                feature = feature.squeeze(2) * attn_wts.view(b * n, -1).unsqueeze(1)
+                feature = feature.sum(2)
+                # feature = self.pe(feature)
+                # feature = feature.transpose(1, 2).transpose(0, 1)
+                # feature, att_wts = self.attention_layer(
+                #     features[0].unsqueeze(0), feature, feature
+                # )
+                # feature = feature.squeeze(0)
             features.extend([feature])
         features = torch.cat(features, dim=1)
 
@@ -197,8 +201,8 @@ class TBNModel(nn.Module):
 
         out = self._aggregate_scores(out, new_shape=(b, n, -1))
 
-        if self.use_attention and self.cfg.model.attention.use_prior:
-            out["weights"] = att_wts
+        # if self.use_attention and self.cfg.model.attention.use_prior:
+        #     out["weights"] = att_wts
 
         return out
 
@@ -238,13 +242,13 @@ class TBNModel(nn.Module):
 
         loss["total"] += loss["all_class"]
 
-        if self.use_attention and self.cfg.model.attention.use_prior:
-            b, n, _, _ = target["weights"].shape
-            assert preds["weights"].shape[0] == b * n
-            prior = target["weights"].reshape(b * n, -1)
-            wts = preds["weights"].reshape(b * n, -1)
-            loss["prior"] = criterion["prior"](wts, prior)
-            loss["total"] += self.cfg.model.attention.wt_multiplier * loss["prior"]
+        # if self.use_attention and self.cfg.model.attention.use_prior:
+        #     b, n, _, _ = target["weights"].shape
+        #     assert preds["weights"].shape[0] == b * n
+        #     prior = target["weights"].reshape(b * n, -1)
+        #     wts = preds["weights"].reshape(b * n, -1)
+        #     loss["prior"] = criterion["prior"](wts, prior)
+        #     loss["total"] += self.cfg.model.attention.wt_multiplier * loss["prior"]
 
         return loss, batch_size
 
