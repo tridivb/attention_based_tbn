@@ -12,7 +12,13 @@ _MODEL_TYPES = {
 }
 
 # Supported loss types
-_LOSS_TYPES = {"crossentropy": torch.nn.CrossEntropyLoss, "nll": torch.nn.NLLLoss, "kl": torch.nn.KLDivLoss, "mse": torch.nn.MSELoss}
+_LOSS_TYPES = {
+    "crossentropy": torch.nn.CrossEntropyLoss,
+    "nll": torch.nn.NLLLoss,
+    "kl": torch.nn.KLDivLoss,
+    "mse": torch.nn.MSELoss,
+    "smoothl1": torch.nn.SmoothL1Loss,
+}
 
 
 def build_model(cfg, modality, device):
@@ -59,7 +65,7 @@ def build_model(cfg, modality, device):
         device_ids = cfg.gpu_ids if len(cfg.gpu_ids) > 1 else None
         model = DataParallel(model, device_ids=device_ids)
 
-    model  = model.to(device)
+    model = model.to(device)
     for key in criterion.keys():
         criterion[key] = criterion[key].to(device)
 

@@ -70,11 +70,11 @@ def bninception(
         data_dict = torch.load(file, map_location="cpu")
 
     if modality == "Audio":
-        # model = BNInception_Audio(num_classes=num_classes, attend=attend)
-        model = BNInception(num_classes=num_classes)
+        model = BNInception_Audio(num_classes=num_classes, attend=attend)
+        # model = BNInception(num_classes=num_classes)
         model.conv1_7x7_s2 = nn.Conv2d(
-                in_channels, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3)
-            )
+            in_channels, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3)
+        )
         data_dict["conv1_7x7_s2.weight"] = (
             data_dict["conv1_7x7_s2.weight"].mean(dim=1).unsqueeze(dim=1)
         )

@@ -48,17 +48,17 @@ class TBNModel(nn.Module):
 
         # Create fusion layer (if applicable) and final linear classificatin layer
         if len(self.modality) > 1:
-            if self.use_attention:
-                self.pe = nn.Sequential(
-                    PositionalEncoding(10, max_len=25, device=device),
-                    nn.Conv1d(1034, 1024, kernel_size=1),
-                    nn.GroupNorm(64, 1024),
-                )
-                self.attention_layer = AttentionLayer(
-                    1024,
-                    cfg.model.attention.attn_heads,
-                    cfg.model.attention.attn_dropout,
-                )
+            # if self.use_attention:
+            #     self.pe = nn.Sequential(
+            #         PositionalEncoding(10, max_len=25, device=device),
+            #         nn.Conv1d(1034, 1024, kernel_size=1),
+            #         nn.GroupNorm(64, 1024),
+            #     )
+            #     self.attention_layer = AttentionLayer(
+            #         1024,
+            #         cfg.model.attention.attn_heads,
+            #         cfg.model.attention.attn_dropout,
+            #     )
             self.add_module(
                 "fusion", Fusion(in_features, 512, dropout=cfg.model.fusion_dropout)
             )
@@ -141,10 +141,9 @@ class TBNModel(nn.Module):
                 getattr(self, "Base_{}".format(modality)).children()
             ):
                 if isinstance(mod, torch.nn.BatchNorm2d):
-                    if (modality == "Audio" and mod_no > 7) or mod_no > 1:
+                    if (modality == "Audio" and mod_no > 6) or mod_no > 1:
                         mod.weight.requires_grad = False
                         mod.bias.requires_grad = False
-                    
 
     def _aggregate_scores(self, scores, new_shape=(1, -1)):
         """
@@ -173,7 +172,7 @@ class TBNModel(nn.Module):
 
         return scores
 
-    def forward(self, input, attn_wts):
+    def forward(self, input, attn_wts=None):
         """
         Forward pass
         """

@@ -66,7 +66,7 @@ def train(
         optimizer.zero_grad()
         data, target = dict_to_device(data), dict_to_device(target)
 
-        out = model(data, target["weights"])
+        out = model(data)
 
         loss, batch_size = model.get_loss(criterion, target, out)
         metric.set_metrics(out, target, batch_size, loss)
@@ -139,7 +139,7 @@ def validate(
         for data, target, _ in tqdm(data_loader):
             data, target = dict_to_device(data), dict_to_device(target)
 
-            out = model(data, target["weights"])
+            out = model(data)
 
             loss, batch_size = model.get_loss(criterion, target, out)
             metric.set_metrics(out, target, batch_size, loss)

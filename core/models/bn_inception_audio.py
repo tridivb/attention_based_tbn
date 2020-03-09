@@ -8,21 +8,22 @@ class BNInception_Audio(nn.Module):
         super(BNInception_Audio, self).__init__()
         inplace = True
         self.attend = attend
-        self.conv1_7x7_s2 = nn.Conv2d(
-            1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3)
+        self.conv1_1x3_s2 = nn.Conv2d(
+            1, 32, kernel_size=(3, 1), stride=(2, 2), padding=(1, 0)
         )
-        self.conv1_7x7_s2_bn = nn.BatchNorm2d(64, affine=True)
-        self.conv1_relu_7x7 = nn.ReLU(inplace)
-        self.conv2_3x1_reduce = nn.Conv2d(
-            64, 64, kernel_size=(1, 3), stride=(1, 2), padding=(1, 0)
+        self.conv1_1x3_s2_bn = nn.BatchNorm2d(32, affine=True)
+        self.conv1_relu_1x3 = nn.ReLU(inplace)
+        self.conv1_3x1_s2 = nn.Conv2d(
+            1, 32, kernel_size=(1, 3), stride=(2, 2), padding=(0, 1)
         )
-        self.conv2_3x1_reduce_bn = nn.BatchNorm2d(64, affine=True)
-        self.conv2_relu_3x1_reduce = nn.ReLU(inplace)
-        self.conv2_1x3_reduce = nn.Conv2d(
-            64, 64, kernel_size=(3, 1), stride=(2, 1), padding=(0, 1)
+        self.conv1_3x1_s2_bn = nn.BatchNorm2d(32, affine=True)
+        self.conv1_relu_3x1 = nn.ReLU(inplace)
+        self.pool1_3x3_s2 = nn.MaxPool2d(
+            (3, 3), stride=(2, 2), dilation=(1, 1), ceil_mode=True
         )
-        self.conv2_1x3_reduce_bn = nn.BatchNorm2d(64, affine=True)
-        self.conv2_relu_1x3_reduce = nn.ReLU(inplace)
+        self.conv2_3x3_reduce = nn.Conv2d(64, 64, kernel_size=(1, 1), stride=(1, 1))
+        self.conv2_3x3_reduce_bn = nn.BatchNorm2d(64, affine=True)
+        self.conv2_relu_3x3_reduce = nn.ReLU(inplace)
         self.conv2_3x3 = nn.Conv2d(
             64, 192, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)
         )
@@ -31,6 +32,29 @@ class BNInception_Audio(nn.Module):
         self.pool2_3x3_s2 = nn.MaxPool2d(
             (3, 3), stride=(2, 2), dilation=(1, 1), ceil_mode=True
         )
+        # self.conv1_7x7_s2 = nn.Conv2d(
+        #     1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3)
+        # )
+        # self.conv1_7x7_s2_bn = nn.BatchNorm2d(64, affine=True)
+        # self.conv1_relu_7x7 = nn.ReLU(inplace)
+        # self.conv2_3x1_reduce = nn.Conv2d(
+        #     64, 64, kernel_size=(1, 3), stride=(1, 2), padding=(1, 0)
+        # )
+        # self.conv2_3x1_reduce_bn = nn.BatchNorm2d(64, affine=True)
+        # self.conv2_relu_3x1_reduce = nn.ReLU(inplace)
+        # self.conv2_1x3_reduce = nn.Conv2d(
+        #     64, 64, kernel_size=(3, 1), stride=(2, 1), padding=(0, 1)
+        # )
+        # self.conv2_1x3_reduce_bn = nn.BatchNorm2d(64, affine=True)
+        # self.conv2_relu_1x3_reduce = nn.ReLU(inplace)
+        # self.conv2_3x3 = nn.Conv2d(
+        #     64, 192, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)
+        # )
+        # self.conv2_3x3_bn = nn.BatchNorm2d(192, affine=True)
+        # self.conv2_relu_3x3 = nn.ReLU(inplace)
+        # self.pool2_3x3_s2 = nn.MaxPool2d(
+        #     (3, 3), stride=(2, 2), dilation=(1, 1), ceil_mode=True
+        # )
         self.inception_3a_1x1 = nn.Conv2d(192, 64, kernel_size=(1, 1), stride=(1, 1))
         self.inception_3a_1x1_bn = nn.BatchNorm2d(64, affine=True)
         self.inception_3a_relu_1x1 = nn.ReLU(inplace)
@@ -381,20 +405,35 @@ class BNInception_Audio(nn.Module):
         self.last_linear = nn.Linear(1024, num_classes)
 
     def features(self, input):
-        conv1_7x7_s2_out = self.conv1_7x7_s2(input)
-        conv1_7x7_s2_bn_out = self.conv1_7x7_s2_bn(conv1_7x7_s2_out)
-        conv1_relu_7x7_out = self.conv1_relu_7x7(conv1_7x7_s2_bn_out)
-        conv2_3x1_reduce_out = self.conv2_3x1_reduce(conv1_relu_7x7_out)
-        conv2_3x1_reduce_bn_out = self.conv2_3x1_reduce_bn(conv2_3x1_reduce_out)
-        conv2_relu_3x1_reduce_out = self.conv2_relu_3x1_reduce(conv2_3x1_reduce_bn_out)
-        conv2_1x3_reduce_out = self.conv2_1x3_reduce(conv2_relu_3x1_reduce_out)
-        conv2_1x3_reduce_bn_out = self.conv2_1x3_reduce_bn(conv2_1x3_reduce_out)
-        conv2_relu_1x3_reduce_out = self.conv2_relu_1x3_reduce(conv2_1x3_reduce_bn_out)
-        conv2_3x3_out = self.conv2_3x3(conv2_relu_1x3_reduce_out)
+        conv1_1x3_s2_out = self.conv1_1x3_s2(input)
+        conv1_1x3_s2_bn_out = self.conv1_1x3_s2_bn(conv1_1x3_s2_out)
+        conv1_relu_1x3_out = self.conv1_relu_1x3(conv1_1x3_s2_bn_out)
+        conv1_3x1_s2_out = self.conv1_3x1_s2(input)
+        conv1_3x1_s2_bn_out = self.conv1_3x1_s2_bn(conv1_3x1_s2_out)
+        conv1_relu_3x1_out = self.conv1_relu_3x1(conv1_3x1_s2_bn_out)
+        pool1_3x3_s2_out = self.pool1_3x3_s2(
+            torch.cat((conv1_relu_1x3_out, conv1_relu_3x1_out), dim=1)
+        )
+        conv2_3x3_reduce_out = self.conv2_3x3_reduce(pool1_3x3_s2_out)
+        conv2_3x3_reduce_bn_out = self.conv2_3x3_reduce_bn(conv2_3x3_reduce_out)
+        conv2_relu_3x3_reduce_out = self.conv2_relu_3x3_reduce(conv2_3x3_reduce_bn_out)
+        conv2_3x3_out = self.conv2_3x3(conv2_relu_3x3_reduce_out)
         conv2_3x3_bn_out = self.conv2_3x3_bn(conv2_3x3_out)
         conv2_relu_3x3_out = self.conv2_relu_3x3(conv2_3x3_bn_out)
-        # pool2_3x3_s2_out = self.conv2_relu_3x3(conv2_3x3_bn_out)
         pool2_3x3_s2_out = self.pool2_3x3_s2(conv2_relu_3x3_out)
+        # conv1_7x7_s2_out = self.conv1_7x7_s2(input)
+        # conv1_7x7_s2_bn_out = self.conv1_7x7_s2_bn(conv1_7x7_s2_out)
+        # conv1_relu_7x7_out = self.conv1_relu_7x7(conv1_7x7_s2_bn_out)
+        # conv2_3x1_reduce_out = self.conv2_3x1_reduce(conv1_relu_7x7_out)
+        # conv2_3x1_reduce_bn_out = self.conv2_3x1_reduce_bn(conv2_3x1_reduce_out)
+        # conv2_relu_3x1_reduce_out = self.conv2_relu_3x1_reduce(conv2_3x1_reduce_bn_out)
+        # conv2_1x3_reduce_out = self.conv2_1x3_reduce(conv2_relu_3x1_reduce_out)
+        # conv2_1x3_reduce_bn_out = self.conv2_1x3_reduce_bn(conv2_1x3_reduce_out)
+        # conv2_relu_1x3_reduce_out = self.conv2_relu_1x3_reduce(conv2_1x3_reduce_bn_out)
+        # conv2_3x3_out = self.conv2_3x3(conv2_relu_1x3_reduce_out)
+        # conv2_3x3_bn_out = self.conv2_3x3_bn(conv2_3x3_out)
+        # conv2_relu_3x3_out = self.conv2_relu_3x3(conv2_3x3_bn_out)
+        # pool2_3x3_s2_out = self.pool2_3x3_s2(conv2_relu_3x3_out)
         inception_3a_1x1_out = self.inception_3a_1x1(pool2_3x3_s2_out)
         inception_3a_1x1_bn_out = self.inception_3a_1x1_bn(inception_3a_1x1_out)
         inception_3a_relu_1x1_out = self.inception_3a_relu_1x1(inception_3a_1x1_bn_out)
@@ -408,7 +447,9 @@ class BNInception_Audio(nn.Module):
         inception_3a_3x3_out = self.inception_3a_3x3(inception_3a_relu_3x3_reduce_out)
         inception_3a_3x3_bn_out = self.inception_3a_3x3_bn(inception_3a_3x3_out)
         inception_3a_relu_3x3_out = self.inception_3a_relu_3x3(inception_3a_3x3_bn_out)
-        inception_3a_double_3x3_reduce_out = self.inception_3a_double_3x3_reduce(pool2_3x3_s2_out)
+        inception_3a_double_3x3_reduce_out = self.inception_3a_double_3x3_reduce(
+            pool2_3x3_s2_out
+        )
         inception_3a_double_3x3_reduce_bn_out = self.inception_3a_double_3x3_reduce_bn(
             inception_3a_double_3x3_reduce_out
         )
