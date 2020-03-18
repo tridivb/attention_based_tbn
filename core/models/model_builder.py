@@ -58,7 +58,9 @@ def build_model(cfg, modality, device):
     criterion[cfg.model.loss_fn] = _LOSS_TYPES[cfg.model.loss_fn]()
 
     if cfg.model.attention.enable and cfg.model.attention.use_prior:
-        criterion["prior"] = _LOSS_TYPES[cfg.model.attention.wt_loss](reduction="mean")
+        criterion["prior"] = _LOSS_TYPES[cfg.model.attention.wt_loss](
+            reduction=cfg.model.attention.loss_reduction
+        )
 
     # Use multi-gpus if set in config
     if num_gpus > 1 and device.type == "cuda":

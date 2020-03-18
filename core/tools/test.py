@@ -113,12 +113,10 @@ def run_tester(cfg, logger, modality):
     logger.info("----------------------------------------------------------")
 
     if cfg.test.pre_trained:
-        pre_trained = os.path.join(cfg.out_dir, cfg.test.pre_trained)
-    elif cfg.train.pre_trained:
-        pre_trained = os.path.join(cfg.out_dir, cfg.train.pre_trained)
+        pre_trained = cfg.test.pre_trained
     else:
         logger.exception(
-            "No pre-trained weights exist. Please set the pre_trained parameter for either train or test in config file."
+            "No pre-trained weights exist. Please set the pre_trained parameter for test in config file."
         )
 
     logger.info("Loading pre-trained weights {}...".format(pre_trained))
@@ -216,7 +214,7 @@ def run_tester(cfg, logger, modality):
             output_dict = results[3]
             if cfg.out_dir:
                 out_file = os.path.join(
-                    cfg.data.out_dir, "results", cfg.test.results_file[idx]
+                    cfg.out_dir, "results", cfg.test.results_file[idx]
                 )
             else:
                 out_file = os.path.join("./results", cfg.test.results_file[idx])

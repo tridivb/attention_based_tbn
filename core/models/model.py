@@ -48,17 +48,18 @@ class TBNModel(nn.Module):
 
         # Create fusion layer (if applicable) and final linear classificatin layer
         if len(self.modality) > 1:
-            # if self.use_attention:
-            #     self.pe = nn.Sequential(
-            #         PositionalEncoding(10, max_len=25, device=device),
-            #         nn.Conv1d(1034, 1024, kernel_size=1),
-            #         nn.GroupNorm(64, 1024),
-            #     )
-            #     self.attention_layer = AttentionLayer(
-            #         1024,
-            #         cfg.model.attention.attn_heads,
-            #         cfg.model.attention.attn_dropout,
-            #     )
+            if self.use_attention:
+                self.pe = nn.Sequential(
+                    PositionalEncoding(10, max_len=25, device=device),
+                    nn.Conv1d(1034, 1024, kernel_size=1),
+                    nn.GroupNorm(64, 1024),
+                )
+                print(cfg.model.attention.attn_dropout)
+                self.attention_layer = AttentionLayer(
+                    1024,
+                    cfg.model.attention.attn_heads,
+                    cfg.model.attention.attn_dropout,
+                )
             self.add_module(
                 "fusion", Fusion(in_features, 512, dropout=cfg.model.fusion_dropout)
             )

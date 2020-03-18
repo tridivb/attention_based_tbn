@@ -8,4 +8,4 @@ test:
   num_segments: 25
   save_results: False
   results_file: [""]
-  pre_trained: "tbn_weights/${exp_name}/epic_tbn_bninception_RGB_Audio_best.pth"
+  pre_trained: "/media/data/tridiv/epic/tbn_weights/attention/seen/epic_tbn_bninception_RGB_Audio_best.pth"
