@@ -8,23 +8,23 @@ class Resnet(nn.Module):
     """
     Resnet module
     """
-    def __init__(self, model_name, modality, in_channels):
+
+    def __init__(self, model_depth, modality, in_channels):
         super(Resnet, self).__init__()
 
-        if model_name == "resnet18":
+        if model_depth == 18:
             self.model = models.resnet18(pretrained=True)
-        elif model_name == "resnet34":
+        elif model_depth == 34:
             self.model = models.resnet34(pretrained=True)
-        elif model_name == "resnet50":
+        elif model_depth == 50:
             self.model = models.resnet50(pretrained=True)
-        elif model_name == "resnet101":
+        elif model_depth == 101:
             self.model = models.resnet101(pretrained=True)
-        elif model_name == "resnet152":
+        elif model_depth == 152:
             self.model = models.resnet152(pretrained=True)
 
         if modality != "RGB":
             weight = self.model.conv1.weight.mean(dim=1).unsqueeze(dim=1)
-            bias = self.model.conv1.bias
             self.model.conv1 = nn.Conv2d(
                 in_channels,
                 self.model.conv1.out_channels,
@@ -33,8 +33,7 @@ class Resnet(nn.Module):
                 padding=self.model.conv1.padding,
                 bias=self.model.conv1.bias,
             )
-            self.model.conv1.weight = weight
-            self.model.conv1.bias = bias
+            self.model.conv1.weight = torch.nn.Parameter(weight)
 
         self.feature_size = self.model.fc.in_features
         self.model = nn.Sequential(*list(self.model.children())[:-1])

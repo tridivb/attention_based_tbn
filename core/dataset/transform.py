@@ -500,6 +500,9 @@ class TransferTensorDict(object):
         assert isinstance(tensor_dict, dict)
 
         for key in tensor_dict.keys():
-            tensor_dict[key] = tensor_dict[key].to(self.device)
+            if isinstance(tensor_dict[key], dict):
+                tensor_dict[key] = self.__call__(tensor_dict[key])
+            else:
+                tensor_dict[key] = tensor_dict[key].to(self.device)
 
         return tensor_dict

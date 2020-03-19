@@ -9,6 +9,7 @@ from torch import Tensor
 import torchvision.transforms.functional as F
 import librosa as lr
 import pandas as pd
+from collections import OrderedDict
 
 from .epic_record import EpicVideoRecord
 from .transform import *
@@ -45,21 +46,25 @@ class Video_Dataset(Dataset):
         mode="train",
     ):
         self.cfg = cfg
-        self.root_dir = cfg.data.data_dir
-        self.rgb_prefix = cfg.data.rgb_dir_prefix
-        self.flow_prefix = cfg.data.flow_dir_prefix
-        self.audio_prefix = cfg.data.audio_dir_prefix
+        self.root_dir = cfg.data_dir
+        self.rgb_prefix = cfg.data.rgb.dir_prefix
+        self.flow_prefix = cfg.data.flow.dir_prefix
+        self.audio_prefix = cfg.data.audio.dir_prefix
 
-        self.vis_file_ext = cfg.data.frame_file_ext
-        self.aud_file_ext = cfg.data.audio_file_ext
+        self.vis_file_ext = cfg.data.rgb.file_ext
+        self.aud_file_ext = cfg.data.audio.file_ext
 
-        self.aud_sampling_rate = cfg.data.sampling_rate
+        self.aud_sampling_rate = cfg.data.audio.sampling_rate
+        self.audio_length = cfg.data.audio.audio_length
+        self.vid_fps = cfg.data.vid_fps
+        self.spec_type = cfg.data.audio.spec_type
 
         self.modality = modality
         self.mode = mode
 
-        self.read_flow_pickle = cfg.data.read_flow_pickle
-        self.read_audio_pickle = cfg.data.read_audio_pickle
+        self.read_flow_pickle = cfg.data.flow.read_flow_pickle
+        self.read_audio_pickle = cfg.data.audio.read_audio_pickle
+        self.use_attention = cfg.model.attention.enable
 
         self.transform = transform
 
@@ -73,14 +78,16 @@ class Video_Dataset(Dataset):
         self.frame_len = {}
         for m in self.modality:
             if m == "Flow":
-                self.frame_len[m] = cfg.data.flow_win_length
+                self.frame_len[m] = cfg.data.flow.win_length
             else:
                 self.frame_len[m] = 1
 
         if annotation_file.endswith("csv"):
-            self.annotations = pd.read_csv(annotation_file)
+            self.annotations = pd.read_csv(os.path.join(self.root_dir, annotation_file))
         elif annotation_file.endswith("pkl"):
-            self.annotations = pd.read_pickle(annotation_file)
+            self.annotations = pd.read_pickle(
+                os.path.join(self.root_dir, annotation_file)
+            )
         if vid_list:
             self.annotations = self.annotations.query("video_id in @vid_list")
 
@@ -116,13 +123,16 @@ class Video_Dataset(Dataset):
 
         """
 
-        data = {}
+        data = OrderedDict()
+        target = OrderedDict()
 
         vid_record = EpicVideoRecord(self.annotations.iloc[index])
         vid_id = vid_record.untrimmed_video_name
 
         indices = {}
         for m in self.modality:
+            # TODO This is ugly. Make it robust when using attention or create a different dataset
+            # class for sampling with attention
             indices[m] = self._get_offsets(vid_record, m)
             # Read individual flow files
             if m == "Flow" and not self.read_flow_pickle:
@@ -130,12 +140,19 @@ class Video_Dataset(Dataset):
                     indices[m].repeat(self.frame_len[m])
                     + np.tile(np.arange(self.frame_len[m]), self.num_segments)
                 ).astype(np.int64)
-                data[m] = self._get_frames(m, vid_id, frame_indices)
+                data[m], _ = self._get_frames(m, vid_id, frame_indices)
+            elif m == "Audio" and self.use_attention:
+                indices[m] = indices["RGB"]
+                data[m], gt_attn_wts = self._get_frames(
+                    m, vid_id, indices[m]
+                )
             else:
-                data[m] = self._get_frames(m, vid_id, indices[m])
+                data[m], _ = self._get_frames(m, vid_id, indices[m])
             data[m] = self._transform_data(data[m], m)
 
-        target = vid_record.label
+        target["class"] = vid_record.label
+        if self.use_attention:
+            target["weights"] = gt_attn_wts
 
         if self.mode == "train":
             return data, target
@@ -210,15 +227,27 @@ class Video_Dataset(Dataset):
         """
 
         frames = []
+        gt_attn_wts = []
         if modality == "Audio":
             aud_sample = self._read_audio_sample(vid_id)
         else:
             aud_sample = None
 
         for ind in indices:
-            frames.extend(self._read_frames(ind, vid_id, modality, aud_sample))
+            if modality == "Audio":
+                frame, gt_attn_wt = self._read_frames(
+                    ind, vid_id, modality, aud_sample
+                )
+                if self.use_attention:
+                    gt_attn_wts.extend(gt_attn_wt)
+            else:
+                frame = self._read_frames(ind, vid_id, modality, aud_sample)
+            frames.extend(frame)
 
-        return frames
+        if len(gt_attn_wts) > 0:
+            gt_attn_wts = torch.stack(gt_attn_wts)
+
+        return frames, gt_attn_wts
 
     def _read_frames(self, frame_idx, vid_id, modality, aud_sample=None):
         """
@@ -245,13 +274,16 @@ class Video_Dataset(Dataset):
             rgb_path = os.path.join(self.root_dir, self.rgb_prefix, vid_id)
             img = cv2.imread(os.path.join(rgb_path, rgb_file_name))
             # Convert to rgb
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             return [img]
         elif modality == "Flow":
             return self._read_flow_frames(frame_idx, vid_id)
         elif modality == "Audio":
-            spec = self._get_audio_segment(frame_idx, aud_sample)
-            return [spec]
+            spec, gt_attn_wts = self._get_audio_segment(
+                frame_idx,
+                aud_sample,
+            )
+            return [spec], [gt_attn_wts]
 
     def _read_flow_frames(self, frame_idx, vid_id):
         """
@@ -362,13 +394,13 @@ class Video_Dataset(Dataset):
 
         """
 
-        min_len = int(self.cfg.data.audio_length * self.aud_sampling_rate)
+        min_len = int(self.audio_length * self.aud_sampling_rate)
         max_len = aud_sample.shape[0]
 
-        # Find the starting temporal offset of the audio sample
-        start_sec = float(frame_idx / self.cfg.data.vid_fps) - (
-            self.cfg.data.audio_length / 2
-        )
+        if max_len < min_len:
+            aud_sample = np.pad(aud_sample, (0, min_len - max_len))
+
+        start_sec = float(frame_idx / self.vid_fps) - (self.audio_length / 2)
         # Find the starting frame of the audio sample array
         start_frame = int(max(0, start_sec * self.aud_sampling_rate))
         if start_frame + min_len > max_len:
@@ -377,8 +409,9 @@ class Video_Dataset(Dataset):
         sample = aud_sample[start_frame : start_frame + min_len]
 
         spec = self._get_spectrogram(sample)
+        gt_attn_wts = self._get_attn_weights(frame_idx, start_sec)
 
-        return spec
+        return spec, gt_attn_wts
 
     def _get_spectrogram(self, sample, window_size=10, step_size=5, eps=1e-6):
         """
@@ -405,16 +438,30 @@ class Video_Dataset(Dataset):
         nperseg = int(round(window_size * self.aud_sampling_rate / 1e3))
         noverlap = int(round(step_size * self.aud_sampling_rate / 1e3))
 
-        spec = lr.stft(
-            sample,
-            n_fft=511,
-            window="hann",
-            hop_length=noverlap,
-            win_length=nperseg,
-            pad_mode="constant",
-        )
+        if self.spec_type == "stft":
+            spec = lr.stft(
+                sample,
+                n_fft=511,
+                window="hann",
+                hop_length=noverlap,
+                win_length=nperseg,
+                pad_mode="constant",
+            )
+            spec = np.log(np.real(spec * np.conj(spec)) + eps)
+        elif self.spec_type == "logms":
+            spec = lr.feature.melspectrogram(
+                sample,
+                sr=self.aud_sampling_rate,
+                n_fft=511,
+                window="hann",
+                hop_length=noverlap,
+                win_length=nperseg,
+                pad_mode="constant",
+            )
+            spec = lr.power_to_db(spec, ref=np.max)
+        else:
+            raise Exception("Unknown spectrogram representation")
 
-        spec = np.log(np.real(spec * np.conj(spec)) + eps)
         return spec
 
     def _transform_data(self, img_stack, modality):
@@ -438,3 +485,22 @@ class Video_Dataset(Dataset):
         img_stack = self.transform[modality](img_stack)
 
         return img_stack
+
+    def _get_attn_weights(self, index, start_time):
+        """
+        """
+        gt_attn_wts = cv2.getGaussianKernel(25, sigma=1.5)
+        mean_loc = gt_attn_wts.shape[0] // 2
+        ind_time = float(index / self.vid_fps)
+        diff = ind_time - start_time
+        new_mean_loc = round(diff * 25 / self.audio_length)
+        if new_mean_loc <= gt_attn_wts.shape[0]:
+            gt_attn_wts = np.roll(gt_attn_wts, new_mean_loc - mean_loc)
+            if new_mean_loc - 6 > 0:
+                gt_attn_wts[: new_mean_loc - 6] = 1e-6
+            if new_mean_loc + 6 < gt_attn_wts.shape[0]:
+                gt_attn_wts[new_mean_loc + 6 :] = 1e-6
+        else:
+            gt_attn_wts = np.zeros(gt_attn_wts.shape, dtype=np.float32) + 1e-6
+        # gt_attn_wts = np.ones((25, 1), dtype=np.float32) / 25
+        return torch.tensor(gt_attn_wts).float()

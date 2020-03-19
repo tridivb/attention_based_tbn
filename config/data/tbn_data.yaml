@@ -1,26 +1,29 @@
 # dataset parameters
 data:
-  data_dir: "/media/data/tridiv/epic"
   dataset: "epic"
-  use_rgb: True 
-  rgb_dir_prefix: "links"
-  use_flow: False 
-  read_flow_pickle: True
-  flow_dir_prefix: "flow_pickle"
-  use_audio: True
-  read_audio_pickle: True
-  audio_dir_prefix: "audio_pickle"
+  rgb:
+    enable: True
+    dir_prefix: "links"
+    file_ext: "jpg"
+    mean: [0.408, 0.459, 0.502]
+    std: [1.0, 1.0, 1.0]
+  flow:
+    enable: False
+    read_flow_pickle: True
+    dir_prefix: "flow_pickle"
+    file_ext: "jpg"
+    win_length: 5
+    mean: [0.502]
+    std: [1.0]
+  audio:
+    enable: True
+    read_audio_pickle: True
+    dir_prefix: "audio_pickle"
+    sampling_rate: 24000
+    audio_length: 4.0
+    spec_type: "stft"
+    file_ext: "wav"
   vid_fps: 60
-  out_dir: "/media/data/tridiv/epic/"
-  frame_file_ext: "jpg"
-  audio_file_ext: "wav"
-  flow_win_length: 5
-  sampling_rate: 24000
-  audio_length: 1.279
-  rgb_mean: [0.408, 0.459, 0.502]
-  rgb_std: [1.0, 1.0, 1.0]
-  flow_mean: [0.502]
-  flow_std: [1.0]
   train_scale_size: 256
   train_crop_size: 224
   test_scale_size: 256

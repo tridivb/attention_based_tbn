@@ -7,6 +7,6 @@ defaults:
   - hydra: custom
 num_workers: 8
 gpu_ids: []
-exp_name: "hydra_test"
-out_dir: "/media/data/tridiv/epic/log"
-  
+exp_name: "attention_test/seen/"
+data_dir: "/media/data/tridiv/epic"
+out_dir: "/media/data/tridiv/epic"

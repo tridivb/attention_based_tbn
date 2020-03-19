@@ -6,10 +6,10 @@ from omegaconf import OmegaConf
 import numpy as np
 import hydra
 
-from tools.train import run_trainer
-from tools.test import run_tester
-from utils.log import setup_log
-from utils.misc import get_modality
+from core.tools import run_trainer
+from core.tools import run_tester
+from core.utils import setup_log
+from core.utils import get_modality
 
 torch.multiprocessing.set_sharing_strategy("file_system")
 
@@ -30,11 +30,11 @@ def main(cfg):
     logger.info("----------------------------------------------------------")
 
     try:
-        if cfg.train.train_enable:
+        if cfg.train.enable:
             logger.info("Training the model.")
             run_trainer(cfg, logger, modality, writer)
 
-        if cfg.test.test_enable:
+        if cfg.test.enable:
             logger.info("Evaluating the model.")
             run_tester(cfg, logger, modality)
     except Exception as e:

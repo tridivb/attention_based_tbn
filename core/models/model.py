@@ -3,10 +3,12 @@ import torch
 import torch.nn as nn
 import torchvision
 import numpy as np
+from collections import OrderedDict
 
 from .vgg import VGG
 from .resnet import Resnet
 from .bn_inception import bninception
+from .attention import PositionalEncoding, AttentionLayer
 
 
 class TBNModel(nn.Module):
@@ -28,6 +30,8 @@ class TBNModel(nn.Module):
         self.modality = modality
         self.base_model_name = cfg.model.arch
         self.num_classes = cfg.model.num_classes
+        self.use_attention = cfg.model.attention.enable
+
         if cfg.model.agg_type.lower() == "avg":
             self.agg_type = "avg"
         else:
@@ -44,6 +48,18 @@ class TBNModel(nn.Module):
 
         # Create fusion layer (if applicable) and final linear classificatin layer
         if len(self.modality) > 1:
+            if self.use_attention:
+                self.pe = nn.Sequential(
+                    PositionalEncoding(10, max_len=25, device=device),
+                    nn.Conv1d(1034, 1024, kernel_size=1),
+                    nn.GroupNorm(64, 1024),
+                )
+                print(cfg.model.attention.attn_dropout)
+                self.attention_layer = AttentionLayer(
+                    1024,
+                    cfg.model.attention.attn_heads,
+                    cfg.model.attention.attn_dropout,
+                )
             self.add_module(
                 "fusion", Fusion(in_features, 512, dropout=cfg.model.fusion_dropout)
             )
@@ -76,17 +92,26 @@ class TBNModel(nn.Module):
         elif modality == "Audio":
             in_channels = 1
 
-        model_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        model_dir = os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        )
         model_dir = os.path.join(model_dir, "weights")
 
+        is_audio = True if modality == "Audio" else False
+
         if "vgg" in self.base_model_name:
-            base_model = VGG(self.base_model_name, modality, in_channels)
+            base_model = VGG(self.cfg.model.vgg.type, modality, in_channels)
         elif "resnet" in self.base_model_name:
-            base_model = Resnet(self.base_model_name, modality, in_channels)
+            base_model = Resnet(self.cfg.model.resnet.depth, modality, in_channels)
         elif self.base_model_name == "bninception":
             pretrained = "kinetics" if modality == "Flow" else "imagenet"
             base_model = bninception(
-                in_channels, modality, model_dir=model_dir, pretrained=pretrained,
+                in_channels,
+                modality,
+                model_dir=model_dir,
+                pretrained=pretrained,
+                is_audio=is_audio,
+                attend=self.use_attention,
             )
 
         return base_model
@@ -109,16 +134,17 @@ class TBNModel(nn.Module):
                 param.requires_grad = False
         elif freeze_mode == "partialbn":
             print(
-                "Freezing the batchnorms of Base Model {} except first layer.".format(
+                "Freezing the batchnorms of Base Model {} except first or new layers.".format(
                     modality
                 )
             )
             for mod_no, mod in enumerate(
                 getattr(self, "Base_{}".format(modality)).children()
             ):
-                if isinstance(mod, torch.nn.BatchNorm2d) and mod_no > 1:
-                    mod.weight.requires_grad = False
-                    mod.bias.requires_grad = False
+                if isinstance(mod, torch.nn.BatchNorm2d):
+                    if (modality == "Audio" and mod_no > 6) or mod_no > 1:
+                        mod.weight.requires_grad = False
+                        mod.bias.requires_grad = False
 
     def _aggregate_scores(self, scores, new_shape=(1, -1)):
         """
@@ -156,7 +182,16 @@ class TBNModel(nn.Module):
             b, n, c, h, w = input[m].shape
             base_model = getattr(self, "Base_{}".format(m))
             feature = base_model(input[m].view(b * n, c, h, w))
-            features.extend([feature.view(b * n, -1)])
+            if m == "Audio" and self.use_attention:
+                # feature = feature.squeeze(2) * attn_wts.view(b * n, -1).unsqueeze(1)
+                # feature = feature.sum(2)
+                feature = self.pe(feature)
+                feature = feature.transpose(1, 2).transpose(0, 1)
+                feature, att_wts = self.attention_layer(
+                    features[0].unsqueeze(0), feature, feature
+                )
+                feature = feature.squeeze(0)
+            features.extend([feature])
         features = torch.cat(features, dim=1)
 
         if len(self.modality) > 1:
@@ -165,6 +200,9 @@ class TBNModel(nn.Module):
         out = self.classifier(features)
 
         out = self._aggregate_scores(out, new_shape=(b, n, -1))
+
+        if self.use_attention and self.cfg.model.attention.use_prior:
+            out["weights"] = att_wts
 
         return out
 
@@ -192,14 +230,25 @@ class TBNModel(nn.Module):
         """
         assert isinstance(target, dict)
         assert isinstance(preds, dict)
+        assert isinstance(criterion, dict)
 
-        loss = {"total": 0}
+        loss = {"total": 0, "all_class": 0}
 
-        for key in target.keys():
-            labels = target[key]
-            batch_size = target[key].shape[0]
-            loss[key] = criterion(preds[key], labels)
-            loss["total"] += loss[key]
+        for key in target["class"].keys():
+            labels = target["class"][key]
+            batch_size = target["class"][key].shape[0]
+            loss[key] = criterion["crossentropy"](preds[key], labels)
+            loss["all_class"] += loss[key]
+
+        loss["total"] += loss["all_class"]
+
+        if self.use_attention and self.cfg.model.attention.use_prior:
+            b, n, _, _ = target["weights"].shape
+            assert preds["weights"].shape[0] == b * n
+            prior = target["weights"].reshape(b * n, -1)
+            wts = preds["weights"].reshape(b * n, -1)
+            loss["prior"] = criterion["prior"](wts, prior)
+            loss["total"] += self.cfg.model.attention.wt_multiplier * loss["prior"]
 
         return loss, batch_size
 
@@ -248,7 +297,7 @@ class Classifier(nn.Module):
             torch.nn.init.constant_(getattr(self, cls).bias, 0)
 
     def forward(self, input):
-        out = {}
+        out = OrderedDict()
         for cls in self.num_classes:
             classifier = getattr(self, cls)
             out[cls] = classifier(input)

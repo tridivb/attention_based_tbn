@@ -8,16 +8,16 @@ class VGG(nn.Module):
     """
     VGG module
     """
-    def __init__(self, model_name, modality, in_channels):
+    def __init__(self, model_type, modality, in_channels):
         super(VGG, self).__init__()
 
-        if model_name == "vgg16":
+        if model_type == "16":
             self.model = models.vgg16(pretrained=True)
-        elif model_name == "vgg16bn":
+        elif model_type == "16bn":
             self.model = models.vgg16_bn(pretrained=True)
-        elif model_name == "vgg11":
+        elif model_type == "11":
             self.model = models.vgg11(pretrained=True)
-        elif model_name == "vgg11bn":
+        elif model_type == "11bn":
             self.model = models.vgg11_bn(pretrained=True)
 
         if modality != "RGB":

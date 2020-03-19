@@ -10,11 +10,10 @@ import pandas as pd
 from tqdm import tqdm
 from torch.utils.data.dataloader import DataLoader
 
-from models.model_builder import build_model
-from dataset.dataset import Video_Dataset
-from utils.misc import get_time_diff, save_scores
-from utils.metric import Metric
-from dataset.transform import *
+from core.models import build_model
+from core.dataset import Video_Dataset
+from core.utils import get_time_diff, save_scores, Metric
+from core.dataset.transform import *
 
 
 def test(
@@ -68,6 +67,7 @@ def test(
         for data, target, action_id in tqdm(data_loader):
             data = dict_to_device(data)
 
+            # Is this necessary?
             if isinstance(target, dict):
                 target = dict_to_device(target)
 
@@ -109,15 +109,14 @@ def run_tester(cfg, logger, modality):
     logger.info("Initializing model...")
     model, criterion, num_gpus = build_model(cfg, modality, device)
     logger.info("Model initialized.")
+    logger.info(model)
     logger.info("----------------------------------------------------------")
 
     if cfg.test.pre_trained:
         pre_trained = cfg.test.pre_trained
-    elif cfg.train.pre_trained:
-        pre_trained = cfg.train.pre_trained
     else:
         logger.exception(
-            "No pre-trained weights exist. Please set the pre_trained parameter for either train or test in config file."
+            "No pre-trained weights exist. Please set the pre_trained parameter for test in config file."
         )
 
     logger.info("Loading pre-trained weights {}...".format(pre_trained))
@@ -138,7 +137,7 @@ def run_tester(cfg, logger, modality):
                     CenterCrop(cfg.data.test_crop_size),
                     Stack(m),
                     ToTensor(),
-                    Normalize(cfg.data.rgb_mean, cfg.data.rgb_std),
+                    Normalize(cfg.data.rgb.mean, cfg.data.rgb.std),
                 ]
             )
         elif m == "Flow":
@@ -148,7 +147,7 @@ def run_tester(cfg, logger, modality):
                     CenterCrop(cfg.data.test_crop_size),
                     Stack(m),
                     ToTensor(),
-                    Normalize(cfg.data.flow_mean, cfg.data.flow_std),
+                    Normalize(cfg.data.flow.mean, cfg.data.flow.std),
                 ]
             )
         elif m == "Audio":
@@ -170,7 +169,10 @@ def run_tester(cfg, logger, modality):
     for idx, annotation in enumerate(cfg.test.annotation_file):
         if cfg.test.vid_list:
             logger.info("Reading list of test videos...")
-            with open(cfg.test.vid_list) as f:
+            file_dir = os.path.dirname(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            )
+            with open(os.path.join(file_dir, cfg.test.vid_list)) as f:
                 test_list = [x.strip() for x in f.readlines() if len(x.strip()) > 0]
             logger.info("Done.")
             logger.info("----------------------------------------------------------")
@@ -210,10 +212,12 @@ def run_tester(cfg, logger, modality):
 
         if cfg.test.save_results:
             output_dict = results[3]
-            if cfg.data.out_dir:
-                out_file = os.path.join(cfg.data.out_dir, cfg.test.results_file[idx])
+            if cfg.out_dir:
+                out_file = os.path.join(
+                    cfg.out_dir, "results", cfg.test.results_file[idx]
+                )
             else:
-                out_file = os.path.join("./", cfg.test.results_file[idx])
+                out_file = os.path.join("./results", cfg.test.results_file[idx])
             try:
                 save_scores(output_dict, out_file)
                 logger.info("Saved results to {}".format(out_file))

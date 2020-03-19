@@ -34,9 +34,13 @@ class Metric(object):
             self.loss[key] = 0
 
         if self.multi_class:
-            self.loss["total"] = 0
+            self.loss["all_class"] = 0
             self.accuracy["all_class"] = [0] * (len(cfg.val.topk))
-            self.loss["total"] = 0
+
+        if self.cfg.model.attention.enable and self.cfg.model.attention.use_prior:
+            self.loss["prior"] = 0
+
+        self.loss["total"] = 0
 
     def set_metrics(self, out, target, batch_size, batch_loss):
         """
@@ -58,8 +62,10 @@ class Metric(object):
         if self.multi_class:
             correct["all_class"] = []
         for key in out.keys():
+            if key == "weights":
+                continue
             corr, cm = self._get_correct_score(
-                out[key], target[key], self.topk, self.device
+                out[key], target["class"][key], self.topk, self.device
             )
             self.conf_mat[key] += cm
             correct[key] = corr
@@ -68,8 +74,12 @@ class Metric(object):
             self.loss[key] += batch_loss[key].item()
 
         if self.multi_class:
-            self.loss["total"] += batch_loss["total"].item()
+            self.loss["all_class"] += batch_loss["all_class"].item()
 
+        if "prior" in batch_loss.keys():
+            self.loss["prior"] += batch_loss["prior"].item()
+
+        self.loss["total"] += batch_loss["total"].item()
 
         for key in self.accuracy.keys():
             for i, k in enumerate(self.topk):

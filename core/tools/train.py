@@ -9,13 +9,12 @@ import torch.optim as optim
 import torchvision
 from tqdm import tqdm
 from torch.utils.data.dataloader import DataLoader
+from collections import OrderedDict
 
-from models.model_builder import build_model
-from dataset.dataset import Video_Dataset
-from utils.misc import get_time_diff, save_checkpoint
-from utils.plot import Plotter
-from utils.metric import Metric
-from dataset.transform import *
+from core.models import build_model
+from core.dataset import Video_Dataset
+from core.utils import get_time_diff, save_checkpoint, Plotter, Metric
+from core.dataset.transform import *
 
 
 def train(
@@ -80,9 +79,7 @@ def train(
             )
             if total_norm > cfg.train.clip_grad:
                 logger.info(
-                    "Clipping gradient: {} with coef {}".format(
-                        total_norm, cfg.train.clip_grad / total_norm
-                    )
+                    f"Clipping gradient: {total_norm} with coef {cfg.train.clip_grad / total_norm}"
                 )
 
         optimizer.step()
@@ -176,24 +173,27 @@ def run_trainer(cfg, logger, modality, writer):
     logger.info("Initializing model...")
     model, criterion, num_gpus = build_model(cfg, modality, device)
     logger.info("Model initialized.")
+    logger.info(model)
     logger.info("----------------------------------------------------------")
 
-    if cfg.train.optim.lower() == "sgd":
+    if cfg.train.optim.type.lower() == "sgd":
         optimizer = optim.SGD(
             model.parameters(),
-            cfg.train.lr,
-            momentum=cfg.train.momentum,
-            weight_decay=cfg.train.weight_decay,
+            cfg.train.optim.lr,
+            momentum=cfg.train.optim.momentum,
+            weight_decay=cfg.train.optim.weight_decay,
         )
         lr_scheduler = optim.lr_scheduler.MultiStepLR(
-            optimizer, milestones=cfg.train.lr_steps, gamma=cfg.train.lr_decay
+            optimizer,
+            milestones=cfg.train.scheduler.lr_steps,
+            gamma=cfg.train.scheduler.lr_decay,
         )
-    elif cfg.train.optim.lower() == "adam":
+    elif cfg.train.optim.type.lower() == "adam":
         optimizer = optim.Adam(
             model.parameters(),
-            cfg.train.lr,
+            cfg.train.optim.lr,
             betas=(0.9, 0.999),
-            weight_decay=cfg.train.weight_decay,
+            weight_decay=cfg.train.optim.weight_decay,
         )
         lr_scheduler = None
 
@@ -212,9 +212,7 @@ def run_trainer(cfg, logger, modality, writer):
         train_loss_hist = data_dict["train_loss"]
         val_loss_hist = data_dict["validation_loss"]
         val_acc_hist = data_dict["validation_accuracy"]
-        logger.info(
-            "Model will continue training from epoch no {}".format(start_epoch + 1)
-        )
+        logger.info(f"Model will continue training from epoch no {start_epoch + 1}")
         logger.info("Done.")
         logger.info("----------------------------------------------------------")
 
@@ -227,20 +225,26 @@ def run_trainer(cfg, logger, modality, writer):
     checkpoint_name = "tbn_{}_{}.pth".format(cfg.model.arch, "_".join(modality))
     if cfg.data.dataset:
         checkpoint_name = "_".join([cfg.data.dataset, checkpoint_name])
-    checkpoint = os.path.join(cfg.model.checkpoint_dir, checkpoint_name)
+    checkpoint = os.path.join(
+        cfg.out_dir, cfg.model.checkpoint_dir, cfg.exp_name, checkpoint_name
+    )
+    os.makedirs(os.path.split(checkpoint)[0], exist_ok=True)
 
     logger.info("Reading list of training and validation videos...")
-    with open(cfg.train.vid_list) as f:
+    file_dir = os.path.dirname(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    )
+    with open(os.path.join(file_dir, cfg.train.vid_list)) as f:
         train_list = [x.strip() for x in f.readlines() if len(x.strip()) > 0]
 
-    with open(cfg.val.vid_list) as f:
+    with open(os.path.join(file_dir, cfg.val.vid_list)) as f:
         val_list = [x.strip() for x in f.readlines() if len(x.strip()) > 0]
 
     logger.info("Done.")
     logger.info("----------------------------------------------------------")
 
-    train_transforms = {}
-    val_transforms = {}
+    train_transforms = OrderedDict()
+    val_transforms = OrderedDict()
     for m in modality:
         if m == "RGB":
             train_transforms[m] = torchvision.transforms.Compose(
@@ -249,7 +253,7 @@ def run_trainer(cfg, logger, modality, writer):
                     RandomHorizontalFlip(prob=0.5),
                     Stack(m),
                     ToTensor(),
-                    Normalize(cfg.data.rgb_mean, cfg.data.rgb_std),
+                    Normalize(cfg.data.rgb.mean, cfg.data.rgb.std),
                 ]
             )
             val_transforms[m] = torchvision.transforms.Compose(
@@ -258,7 +262,7 @@ def run_trainer(cfg, logger, modality, writer):
                     CenterCrop(cfg.data.test_crop_size),
                     Stack(m),
                     ToTensor(),
-                    Normalize(cfg.data.rgb_mean, cfg.data.rgb_std),
+                    Normalize(cfg.data.rgb.mean, cfg.data.rgb.std),
                 ]
             )
         elif m == "Flow":
@@ -268,7 +272,7 @@ def run_trainer(cfg, logger, modality, writer):
                     RandomHorizontalFlip(prob=0.5),
                     Stack(m),
                     ToTensor(),
-                    Normalize(cfg.data.flow_mean, cfg.data.flow_std),
+                    Normalize(cfg.data.flow.mean, cfg.data.flow.std),
                 ]
             )
             val_transforms[m] = torchvision.transforms.Compose(
@@ -277,7 +281,7 @@ def run_trainer(cfg, logger, modality, writer):
                     CenterCrop(cfg.data.test_crop_size),
                     Stack(m),
                     ToTensor(),
-                    Normalize(cfg.data.flow_mean, cfg.data.flow_std),
+                    Normalize(cfg.data.flow.mean, cfg.data.flow.std),
                 ]
             )
         elif m == "Audio":
@@ -339,7 +343,7 @@ def run_trainer(cfg, logger, modality, writer):
         train_loss_hist.append(train_loss)
         logger.info("Validation in progress...")
 
-        if cfg.val.val_enable:
+        if cfg.val.enable:
             val_loss, val_acc, confusion_matrix = validate(
                 cfg, model, val_loader, criterion, modality, logger, device
             )
@@ -352,7 +356,7 @@ def run_trainer(cfg, logger, modality, writer):
         if lr_scheduler:
             lr_scheduler.step()
 
-        if cfg.val.val_enable and val_acc["all_class"][0] > best_acc:
+        if cfg.val.enable and val_acc["all_class"][0] > best_acc:
             save_checkpoint(
                 model,
                 optimizer,
@@ -383,35 +387,27 @@ def run_trainer(cfg, logger, modality, writer):
         hours, minutes, seconds = get_time_diff(epoch_start_time, time.time())
 
         logger.info("----------------------------------------------------------")
-        logger.info(
-            "Epoch: [{}/{}] || Train_loss: {} || Val_Loss: {}".format(
-                epoch + 1, epochs, train_loss, val_loss
-            )
-        )
+        logger.info(f"Epoch: [{epoch + 1}/{epochs}]")
+        logger.info(f"Train_loss: {train_loss}")
+        logger.info(f"Val_Loss: {val_loss}")
         logger.info("----------------------------------------------------------")
-        logger.info(
-            "Epoch Time: {} hours, {} minutes, {} seconds".format(
-                hours, minutes, seconds
-            )
-        )
+        logger.info(f"Epoch Time: {hours} hours, {minutes} minutes, {seconds} seconds")
         logger.info("----------------------------------------------------------")
-        logger.info("Accuracy Top {}:".format(cfg.val.topk))
+        logger.info(f"Accuracy Top {cfg.val.topk}:")
         logger.info(json.dumps(val_acc, indent=2))
         logger.info("----------------------------------------------------------")
 
         for k in train_loss.keys():
-            plotter.plot_scalar(train_loss[k], epoch, "train/{}_loss".format(k))
-            plotter.plot_scalar(val_loss[k], epoch, "val/{}_loss".format(k))
+            plotter.plot_scalar(train_loss[k], epoch, f"train/{k}_loss")
+            plotter.plot_scalar(val_loss[k], epoch, f"val/{k}_loss")
         for cls, acc in val_acc.items():
             for k, v in enumerate(acc):
                 plotter.plot_scalar(
-                    v, epoch, "val/accuracy/{}_top_{}".format(cls, cfg.val.topk[k])
+                    v, epoch, f"val/accuracy/{cls}_top_{cfg.val.topk[k]}"
                 )
 
     hours, minutes, seconds = get_time_diff(start_time, time.time())
     logger.info(
-        "Training completed. Total time taken: {} hours, {} minutes, {} seconds".format(
-            hours, minutes, seconds
-        )
+        f"Training completed. Total time taken: {hours} hours, {minutes} minutes, {seconds} seconds"
     )
 
