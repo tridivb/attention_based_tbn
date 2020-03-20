@@ -54,7 +54,6 @@ class TBNModel(nn.Module):
                     nn.Conv1d(1034, 1024, kernel_size=1),
                     nn.GroupNorm(64, 1024),
                 )
-                print(cfg.model.attention.attn_dropout)
                 self.attention_layer = AttentionLayer(
                     1024,
                     cfg.model.attention.attn_heads,

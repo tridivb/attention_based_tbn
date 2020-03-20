@@ -128,8 +128,10 @@ class Video_Dataset(Dataset):
 
         vid_record = EpicVideoRecord(self.annotations.iloc[index])
         vid_id = vid_record.untrimmed_video_name
+        
+        data["vid_id"] = vid_id
 
-        indices = {}
+        indices = OrderedDict()
         for m in self.modality:
             # TODO This is ugly. Make it robust when using attention or create a different dataset
             # class for sampling with attention
@@ -149,6 +151,8 @@ class Video_Dataset(Dataset):
             else:
                 data[m], _ = self._get_frames(m, vid_id, indices[m])
             data[m] = self._transform_data(data[m], m)
+            
+        data["indices"] = indices
 
         target["class"] = vid_record.label
         if self.use_attention:
