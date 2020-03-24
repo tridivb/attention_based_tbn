@@ -246,7 +246,10 @@ class TBNModel(nn.Module):
             assert preds["weights"].shape[0] == b * n
             prior = target["weights"].reshape(b * n, -1)
             wts = preds["weights"].reshape(b * n, -1)
-            loss["prior"] = criterion["prior"](wts, prior)
+            if self.cfg.model.attention.wt_loss == "contrast":
+                loss["prior"] = criterion["prior"](wts)
+            else:
+                loss["prior"] = criterion["prior"](wts, prior)
             loss["total"] += self.cfg.model.attention.wt_multiplier * loss["prior"]
 
         return loss, batch_size

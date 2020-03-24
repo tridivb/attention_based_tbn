@@ -3,6 +3,7 @@ from collections import OrderedDict
 
 from .model import TBNModel
 from .dataparallel import DataParallel
+from .contrast_loss import ContrastLoss
 
 # Supported model types
 _MODEL_TYPES = {
@@ -18,6 +19,7 @@ _LOSS_TYPES = {
     "kl": torch.nn.KLDivLoss,
     "mse": torch.nn.MSELoss,
     "smoothl1": torch.nn.SmoothL1Loss,
+    "contrast": ContrastLoss,
 }
 
 
