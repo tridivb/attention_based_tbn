@@ -10,8 +10,7 @@ class ContrastLoss(nn.Module):
             raise Exception(f"{reduction} type reduction not supported for Contrast Loss")
 
     def forward(self, input):
-        input = torch.softmax(input, dim=1)
-        binary_mask = input.clone().detach()
+        binary_mask = input.detach()
         binary_mask[binary_mask >= 0.1] = 1
         binary_mask[binary_mask < 0.1] = 0
         
