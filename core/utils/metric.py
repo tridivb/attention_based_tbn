@@ -37,8 +37,11 @@ class Metric(object):
             self.loss["all_class"] = 0
             self.accuracy["all_class"] = [0] * (len(cfg.val.topk))
 
-        if self.cfg.model.attention.enable and self.cfg.model.attention.use_prior:
-            self.loss["prior"] = 0
+        if self.cfg.model.attention.enable:
+            if self.cfg.model.attention.use_prior:
+                self.loss["prior"] = 0
+            if self.cfg.model.attention.use_contrast:
+                self.loss["contrast"] = 0
 
         self.loss["total"] = 0
 
@@ -78,6 +81,8 @@ class Metric(object):
 
         if "prior" in batch_loss.keys():
             self.loss["prior"] += batch_loss["prior"].item()
+        if "contrast" in batch_loss.keys():
+            self.loss["contrast"] += batch_loss["contrast"].item()
 
         self.loss["total"] += batch_loss["total"].item()
 

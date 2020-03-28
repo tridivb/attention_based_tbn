@@ -241,16 +241,19 @@ class TBNModel(nn.Module):
 
         loss["total"] += loss["all_class"]
 
-        if self.use_attention and self.cfg.model.attention.use_prior:
+        if self.use_attention:
             b, n, _, _ = target["weights"].shape
             assert preds["weights"].shape[0] == b * n
-            prior = target["weights"].reshape(b * n, -1)
             wts = preds["weights"].reshape(b * n, -1)
-            if self.cfg.model.attention.wt_loss == "contrast":
-                loss["prior"] = criterion["prior"](wts)
-            else:
+            if self.cfg.model.attention.use_contrast:
+                loss["contrast"] = criterion["contrast"](wts)
+                loss["total"] += loss["contrast"]
+            if self.cfg.model.attention.use_prior:
+                prior = target["weights"].reshape(b * n, -1)
+                if self.cfg.model.attention.wt_loss == "kl":
+                    wts = torch.log(wts + 1e-7)
                 loss["prior"] = criterion["prior"](wts, prior)
-            loss["total"] += self.cfg.model.attention.wt_multiplier * loss["prior"]
+                loss["total"] += self.cfg.model.attention.wt_multiplier * loss["prior"]
 
         return loss, batch_size
 

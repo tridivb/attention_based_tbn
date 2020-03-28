@@ -4,7 +4,7 @@ import torch.nn as nn
 class ContrastLoss(nn.Module):
     def __init__(self, reduction=None):
         super(ContrastLoss, self).__init__()
-        if reduction in ["mean", "sum"]:
+        if reduction in ["mean", "batchmean", "sum"]:
             self.reduction = reduction
         else:
             raise Exception(f"{reduction} type reduction not supported for Contrast Loss")
@@ -16,7 +16,7 @@ class ContrastLoss(nn.Module):
         
         loss = ((input * (1 - binary_mask)) - (input * binary_mask)).sum(dim=1)
         
-        if self.reduction == "mean":
+        if self.reduction in ["mean", "batchmean"]:
             loss = loss.mean()
         
         return loss

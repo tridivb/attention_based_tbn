@@ -19,7 +19,6 @@ _LOSS_TYPES = {
     "kl": torch.nn.KLDivLoss,
     "mse": torch.nn.MSELoss,
     "smoothl1": torch.nn.SmoothL1Loss,
-    "contrast": ContrastLoss,
 }
 
 
@@ -59,10 +58,15 @@ def build_model(cfg, modality, device):
     criterion = OrderedDict()
     criterion[cfg.model.loss_fn] = _LOSS_TYPES[cfg.model.loss_fn]()
 
-    if cfg.model.attention.enable and cfg.model.attention.use_prior:
-        criterion["prior"] = _LOSS_TYPES[cfg.model.attention.wt_loss](
-            reduction=cfg.model.attention.loss_reduction
-        )
+    if cfg.model.attention.enable:
+        if cfg.model.attention.use_prior:
+            criterion["prior"] = _LOSS_TYPES[cfg.model.attention.wt_loss](
+                reduction=cfg.model.attention.loss_reduction
+            )
+        if cfg.model.attention.use_contrast:
+            criterion["contrast"] = ContrastLoss(
+                reduction=cfg.model.attention.loss_reduction
+            )
 
     # Use multi-gpus if set in config
     if num_gpus > 1 and device.type == "cuda":

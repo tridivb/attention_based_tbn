@@ -8,12 +8,9 @@ import torch
 import torch.optim as optim
 import torchvision
 from tqdm import tqdm
-from torch.utils.data.dataloader import DataLoader
-from collections import OrderedDict
 
 from core.models import build_model
-from core.dataset import Video_Dataset
-from core.utils import get_time_diff, save_checkpoint, Plotter, Metric
+from core.utils import get_time_diff, save_checkpoint, create_dataloader, Plotter, Metric
 from core.dataset.transform import *
 
 
@@ -230,103 +227,9 @@ def run_trainer(cfg, logger, modality, writer):
     )
     os.makedirs(os.path.split(checkpoint)[0], exist_ok=True)
 
-    logger.info("Reading list of training and validation videos...")
-    file_dir = os.path.dirname(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    )
-    with open(os.path.join(file_dir, cfg.train.vid_list)) as f:
-        train_list = [x.strip() for x in f.readlines() if len(x.strip()) > 0]
-
-    with open(os.path.join(file_dir, cfg.val.vid_list)) as f:
-        val_list = [x.strip() for x in f.readlines() if len(x.strip()) > 0]
-
-    logger.info("Done.")
-    logger.info("----------------------------------------------------------")
-
-    train_transforms = OrderedDict()
-    val_transforms = OrderedDict()
-    for m in modality:
-        if m == "RGB":
-            train_transforms[m] = torchvision.transforms.Compose(
-                [
-                    MultiScaleCrop(cfg.data.train_crop_size, [1, 0.875, 0.75, 0.66]),
-                    RandomHorizontalFlip(prob=0.5),
-                    Stack(m),
-                    ToTensor(),
-                    Normalize(cfg.data.rgb.mean, cfg.data.rgb.std),
-                ]
-            )
-            val_transforms[m] = torchvision.transforms.Compose(
-                [
-                    Rescale(cfg.data.test_scale_size),
-                    CenterCrop(cfg.data.test_crop_size),
-                    Stack(m),
-                    ToTensor(),
-                    Normalize(cfg.data.rgb.mean, cfg.data.rgb.std),
-                ]
-            )
-        elif m == "Flow":
-            train_transforms[m] = torchvision.transforms.Compose(
-                [
-                    MultiScaleCrop(cfg.data.train_crop_size, [1, 0.875, 0.75]),
-                    RandomHorizontalFlip(prob=0.5),
-                    Stack(m),
-                    ToTensor(),
-                    Normalize(cfg.data.flow.mean, cfg.data.flow.std),
-                ]
-            )
-            val_transforms[m] = torchvision.transforms.Compose(
-                [
-                    Rescale(cfg.data.test_scale_size),
-                    CenterCrop(cfg.data.test_crop_size),
-                    Stack(m),
-                    ToTensor(),
-                    Normalize(cfg.data.flow.mean, cfg.data.flow.std),
-                ]
-            )
-        elif m == "Audio":
-            train_transforms[m] = torchvision.transforms.Compose(
-                [Stack(m), ToTensor(is_audio=True)]
-            )
-            val_transforms[m] = torchvision.transforms.Compose(
-                [Stack(m), ToTensor(is_audio=True)]
-            )
-
-    logger.info("Creating datasets...")
-    train_dataset = Video_Dataset(
-        cfg,
-        train_list,
-        cfg.train.annotation_file,
-        modality,
-        transform=train_transforms,
-        mode="train",
-    )
-
-    val_dataset = Video_Dataset(
-        cfg,
-        val_list,
-        cfg.train.annotation_file,
-        modality,
-        transform=val_transforms,
-        mode="val",
-    )
-
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=cfg.train.batch_size,
-        shuffle=True,
-        num_workers=cfg.num_workers,
-    )
-    val_loader = DataLoader(
-        val_dataset,
-        batch_size=cfg.val.batch_size,
-        shuffle=False,
-        num_workers=cfg.num_workers,
-    )
-
-    logger.info("Done.")
-    logger.info("----------------------------------------------------------")
-
+    train_loader = create_dataloader(cfg, logger, modality, mode="train")
+    val_loader = create_dataloader(cfg, logger, modality, mode="val")
+    
     best_acc = np.NINF
     plotter = Plotter(writer)
     plotter.add_config(cfg)
