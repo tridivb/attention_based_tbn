@@ -10,7 +10,13 @@ import torchvision
 from tqdm import tqdm
 
 from core.models import build_model
-from core.utils import get_time_diff, save_checkpoint, create_dataloader, Plotter, Metric
+from core.utils import (
+    get_time_diff,
+    save_checkpoint,
+    create_dataloader,
+    Plotter,
+    Metric,
+)
 from core.dataset.transform import *
 
 
@@ -229,7 +235,7 @@ def run_trainer(cfg, logger, modality, writer):
 
     train_loader = create_dataloader(cfg, logger, modality, mode="train")
     val_loader = create_dataloader(cfg, logger, modality, mode="val")
-    
+
     best_acc = np.NINF
     plotter = Plotter(writer)
     plotter.add_config(cfg)

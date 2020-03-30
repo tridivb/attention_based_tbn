@@ -21,7 +21,7 @@ def setup_log(modality):
 
     """
     # Create log directory
-    
+
     log_dir = os.getcwd()
     logger = logging.getLogger(__name__)
 

@@ -65,7 +65,8 @@ def build_model(cfg, modality, device):
             )
         if cfg.model.attention.use_contrast:
             criterion["contrast"] = ContrastLoss(
-                reduction=cfg.model.attention.loss_reduction
+                threshold=cfg.model.attention.contrast_thresh,
+                reduction=cfg.model.attention.loss_reduction,
             )
 
     # Use multi-gpus if set in config

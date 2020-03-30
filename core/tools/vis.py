@@ -7,58 +7,89 @@ import torchvision
 import pandas as pd
 from torch.utils.data.dataloader import default_collate
 from omegaconf import OmegaConf
+from PIL import Image
+import matplotlib.pyplot as plt
 
 from core.models import build_model
-from core.dataset import Video_Dataset
+from core.dataset import Video_Dataset, EpicClasses
 from core.utils import get_modality
 from core.dataset.transform import *
 
 
-def infer(
-    cfg, model, data, target, device=torch.device("cuda")
-):
-    """
-    Evaluate the model
-
-    Args
-    ----------
-    cfg: dict
-        Dictionary of config parameters
-    model: torch.nn.model
-        Model to train
-    data_loader: DataLoader
-        Data loader to iterate over the data
-    criterion: loss
-        Loss function to use
-    modality: list
-        List of input modalities
-    logger: logger
-        Python logger
-    device: torch.device, default = torch.device("cuda")
-        Torch device to use
-
-    Returns
-    ----------
-    test_loss: dict
-        Dictionary of losses for each class and sum of all losses
-    test_acc: dict
-        Accuracy of each type of class
-    confusion_matrix: Tensor
-        Array of the confusion matrix over the test set
-    output: dict
-        Dictionary of model output over the test set
-
-    """
-
+def visualize(cfg, model, dataset, index, epic_classes, device):
     dict_to_device = TransferTensorDict(device)
-
+    data, target, _ = default_collate([dataset[index - 1]])
+    rgb_indices = data["indices"]["RGB"].numpy().squeeze()
+    spec = data["Audio"]
+    data = dict_to_device(data)
     model.eval()
-
     with torch.no_grad():
-        data, target = dict_to_device(data), dict_to_device(target)
         out = model(data)
 
-    return out
+    verb_preds = out["verb"].softmax(dim=1).topk(5, 1, largest=True, sorted=True)
+    noun_preds = out["noun"].softmax(dim=1).topk(5, 1, largest=True, sorted=True)
+    verb_t5 = [epic_classes.verbs[i.item()] for i in verb_preds.indices.squeeze()]
+    noun_t5 = [epic_classes.nouns[i.item()] for i in noun_preds.indices.squeeze()]
+    verb_gt = epic_classes.verbs[target["class"]["verb"].item()]
+    noun_gt = epic_classes.nouns[target["class"]["noun"].item()]
+    verbs = [verb_gt] + verb_t5
+    verb_scores = [1.0] + verb_preds.values.squeeze().tolist()
+    nouns = [noun_gt] + noun_t5
+    noun_scores = [1.0] + noun_preds.values.squeeze().tolist()
+
+    weights = out["weights"].cpu().numpy()
+    spec = spec.numpy().squeeze()
+    fig, axarr = plt.subplots(4, 3, figsize=(16, 16))
+    axarr[0, 0].set_ylabel("RGB Frames", fontsize=10)
+    axarr[1, 0].set_ylabel("Audio Spectrograms", fontsize=10)
+    axarr[2, 0].set_ylabel("Attention Weights", fontsize=10)
+    axarr[3, 0].set_ylabel("Classes")
+    for idx in range(weights.shape[0]):
+        x = np.arange(weights.shape[2])
+        img = Image.open(
+            os.path.join(
+                cfg.data_dir,
+                cfg.data.rgb.dir_prefix,
+                data["vid_id"][0],
+                "img_{:010d}.jpg".format(rgb_indices[idx]),
+            )
+        )
+        img = img.resize((256, 256))
+        axarr[0, idx].imshow(img)
+        axarr[0, idx].set_title("Time: {:.3f} seconds".format(rgb_indices[idx]/cfg.data.vid_fps))
+        axarr[1, idx].imshow(spec[idx], cmap="jet", origin="lowest", aspect="auto")
+        axarr[2, idx].plot(x, weights[idx].squeeze(0))
+        axarr[2, idx].set_ylim([0, 1])
+        axarr[2, idx].set_xlim([0, 25])
+
+    axarr[3, 0].bar(
+        np.arange(len(verbs)),
+        verb_scores,
+        width=0.5,
+        align="center",
+        alpha=1.0,
+        color=["red", "blue", "green", "green", "green", "green"],
+    )
+    axarr[3, 0].set_xticks(np.arange(len(verbs)))
+    axarr[3, 0].set_xticklabels(verbs)
+    axarr[3, 0].set_title("Verbs")
+    axarr[3, 1].bar(
+        np.arange(len(nouns)),
+        noun_scores,
+        width=0.5,
+        align="center",
+        alpha=1.0,
+        color=["red", "blue", "green", "green", "green", "green"],
+    )
+    axarr[3, 1].set_xticks(np.arange(len(nouns)))
+    axarr[3, 1].set_xticklabels(nouns)
+    axarr[3, 1].set_title("Nouns")
+
+    axarr[3, 2].axis("off")
+
+    fig.suptitle(f"Video Id: {data['vid_id'][0]}", fontsize=20)
+
+    fig.savefig("results/vis.png")
 
 
 def initialize(config_file):
@@ -128,7 +159,6 @@ def initialize(config_file):
                 [Stack(m), ToTensor(is_audio=True)]
             )
 
-
     if cfg.test.vid_list:
         print("Reading list of test videos...")
         with open(os.path.join("./", cfg.test.vid_list)) as f:
@@ -150,4 +180,6 @@ def initialize(config_file):
     print("Done.")
     print("----------------------------------------------------------")
 
-    return cfg, model, dataset, device
+    epic_classes = EpicClasses(os.path.join(cfg.data_dir, "annotations"))
+
+    return cfg, model, dataset, epic_classes, device

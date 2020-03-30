@@ -128,7 +128,7 @@ class Video_Dataset(Dataset):
 
         vid_record = EpicVideoRecord(self.annotations.iloc[index])
         vid_id = vid_record.untrimmed_video_name
-        
+
         data["vid_id"] = vid_id
 
         indices = OrderedDict()
@@ -145,13 +145,11 @@ class Video_Dataset(Dataset):
                 data[m], _ = self._get_frames(m, vid_id, frame_indices)
             elif m == "Audio" and self.use_attention:
                 indices[m] = indices["RGB"]
-                data[m], gt_attn_wts = self._get_frames(
-                    m, vid_id, indices[m]
-                )
+                data[m], gt_attn_wts = self._get_frames(m, vid_id, indices[m])
             else:
                 data[m], _ = self._get_frames(m, vid_id, indices[m])
             data[m] = self._transform_data(data[m], m)
-            
+
         data["indices"] = indices
 
         target["class"] = vid_record.label
@@ -239,9 +237,7 @@ class Video_Dataset(Dataset):
 
         for ind in indices:
             if modality == "Audio":
-                frame, gt_attn_wt = self._read_frames(
-                    ind, vid_id, modality, aud_sample
-                )
+                frame, gt_attn_wt = self._read_frames(ind, vid_id, modality, aud_sample)
                 if self.use_attention:
                     gt_attn_wts.extend(gt_attn_wt)
             else:
@@ -283,10 +279,7 @@ class Video_Dataset(Dataset):
         elif modality == "Flow":
             return self._read_flow_frames(frame_idx, vid_id)
         elif modality == "Audio":
-            spec, gt_attn_wts = self._get_audio_segment(
-                frame_idx,
-                aud_sample,
-            )
+            spec, gt_attn_wts = self._get_audio_segment(frame_idx, aud_sample,)
             return [spec], [gt_attn_wts]
 
     def _read_flow_frames(self, frame_idx, vid_id):

@@ -1,0 +1,82 @@
+data:
+  audio:
+    audio_length: 4.0
+    dir_prefix: audio_pickle
+    enable: true
+    file_ext: wav
+    read_audio_pickle: true
+    sampling_rate: 24000
+    spec_type: "stft"
+  dataset: epic
+  flow:
+    dir_prefix: flow_pickle
+    enable: false
+    file_ext: jpg
+    mean:
+    - 0.502
+    read_flow_pickle: true
+    std:
+    - 1.0
+    win_length: 5
+  manual_seed: 0
+  rgb:
+    dir_prefix: links
+    enable: true
+    file_ext: jpg
+    mean:
+    - 0.408
+    - 0.459
+    - 0.502
+    std:
+    - 1.0
+    - 1.0
+    - 1.0
+  test_crop_size: 224
+  test_scale_size: 256
+  train_crop_size: 224
+  train_scale_size: 256
+  vid_fps: 60
+data_dir: /media/data/tridiv/epic
+exp_name: streamlit_test/
+gpu_ids: []
+model:
+  agg_type: avg
+  arch: bninception
+  attention:
+    attn_dropout: 0.5
+    attn_heads: 4
+    enable: true
+    use_prior: false
+    use_contrast: true
+    wt_loss: kl
+    loss_reduction: mean
+    wt_multiplier: 1.0
+  checkpoint_dir: tbn_weights
+  freeze_base: true
+  freeze_mode: partialbn
+  fusion_dropout: 0.5
+  loss_fn: crossentropy
+  num_classes:
+    noun: 352
+    verb: 125
+  resnet:
+    depth: 101
+  vgg:
+    type: '16'
+num_workers: 1
+out_dir: /media/data/tridiv/epic
+test:
+  annotation_file:
+  - annotations/EPIC_train_action_labels.csv
+  batch_size: 5
+  enable: true
+  num_segments: 3
+  pre_trained: "/media/data/tridiv/epic/tbn_weights/prior_kl/unseen/epic_tbn_bninception_RGB_Audio.pth"
+  results_file:
+  - ''
+  save_results: false
+  topk:
+  - 1
+  - 5
+  vid_list: data/val_split_unseen.txt
+  # vid_list: data/train_split_unseen.txt

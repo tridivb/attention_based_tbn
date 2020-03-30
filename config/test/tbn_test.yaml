@@ -1,6 +1,6 @@
 # test parameters
 test:
-  enable: False 
+  enable: False
   annotation_file: ["annotations/EPIC_train_action_labels.csv"]
   vid_list: "data/val_split_seen.txt"
   batch_size: 2

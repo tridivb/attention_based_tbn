@@ -200,7 +200,7 @@ class TBNModel(nn.Module):
 
         out = self._aggregate_scores(out, new_shape=(b, n, -1))
 
-        if self.use_attention and self.cfg.model.attention.use_prior:
+        if self.use_attention:
             out["weights"] = att_wts
 
         return out

@@ -8,8 +8,9 @@ model:
     use_prior: True
     wt_loss: "kl"
     use_contrast: True
+    contrast_thresh: 0.1
     loss_reduction: "batchmean"
-    wt_multiplier: 1.0 
+    wt_multiplier: 1.0
   resnet:
     depth: 101
   vgg:
