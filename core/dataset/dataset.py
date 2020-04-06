@@ -130,6 +130,8 @@ class Video_Dataset(Dataset):
         vid_id = vid_record.untrimmed_video_name
 
         data["vid_id"] = vid_id
+        data["start_time"] = vid_record.start_time
+        data["stop_time"] = vid_record.stop_time
 
         indices = OrderedDict()
         for m in self.modality:

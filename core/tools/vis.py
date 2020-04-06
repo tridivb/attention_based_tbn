@@ -9,6 +9,7 @@ from torch.utils.data.dataloader import default_collate
 from omegaconf import OmegaConf
 from PIL import Image
 import matplotlib.pyplot as plt
+import moviepy.editor as mpe
 
 from core.models import build_model
 from core.dataset import Video_Dataset, EpicClasses
@@ -90,6 +91,11 @@ def visualize(cfg, model, dataset, index, epic_classes, device):
     fig.suptitle(f"Video Id: {data['vid_id'][0]}", fontsize=20)
 
     fig.savefig("results/vis.png")
+    
+    vid_file = os.path.join(cfg.data_dir, f"vid_symlinks/{data['vid_id'][0]}.MP4")
+    video = mpe.VideoFileClip(vid_file).subclip(data['start_time'][0], data['stop_time'][0])
+    video.write_videofile("results/temp.MP4", logger=None)
+    video.close()
 
 
 def initialize(config_file):
