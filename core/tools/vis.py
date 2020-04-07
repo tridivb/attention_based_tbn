@@ -10,12 +10,39 @@ from omegaconf import OmegaConf
 from PIL import Image
 import matplotlib.pyplot as plt
 import moviepy.editor as mpe
+from tqdm import tqdm
 
 from core.models import build_model
 from core.dataset import Video_Dataset, EpicClasses
 from core.utils import get_modality
 from core.dataset.transform import *
 
+def get_interest_points(model, criterion, dataset, device, topk=5):
+    losses = []
+    dict_to_device = TransferTensorDict(device)
+    data_loader = torch.utils.data.DataLoader(
+        dataset,
+        batch_size=1,
+        shuffle=False,
+        num_workers=8,
+    )
+    model.eval()
+    with torch.no_grad():
+        for data, target, _ in tqdm(data_loader):
+            data, target = dict_to_device(data), dict_to_device(target)
+            out = model(data)
+            loss, _ = model.get_loss(criterion, target, out)
+            losses.append(loss["prior"].item())
+            
+    interest_pts = np.array(losses).argsort()[::-1] + 1
+    return interest_pts[:topk]
+
+def save_action_segment(data_dir, vid_id, start_time, stop_time):
+    vid_file = os.path.join(data_dir, f"vid_symlinks/{vid_id}.MP4")
+    video = mpe.VideoFileClip(vid_file).subclip(start_time, stop_time)
+    video.write_videofile("results/temp.MP4", logger=None)
+    video.close()
+            
 
 def visualize(cfg, model, dataset, index, epic_classes, device):
     dict_to_device = TransferTensorDict(device)
@@ -40,7 +67,7 @@ def visualize(cfg, model, dataset, index, epic_classes, device):
 
     weights = out["weights"].cpu().numpy()
     spec = spec.numpy().squeeze()
-    fig, axarr = plt.subplots(4, 3, figsize=(16, 16))
+    fig, axarr = plt.subplots(4, cfg.test.num_segments, figsize=(16, 16))
     axarr[0, 0].set_ylabel("RGB Frames", fontsize=10)
     axarr[1, 0].set_ylabel("Audio Spectrograms", fontsize=10)
     axarr[2, 0].set_ylabel("Attention Weights", fontsize=10)
@@ -92,10 +119,7 @@ def visualize(cfg, model, dataset, index, epic_classes, device):
 
     fig.savefig("results/vis.png")
     
-    vid_file = os.path.join(cfg.data_dir, f"vid_symlinks/{data['vid_id'][0]}.MP4")
-    video = mpe.VideoFileClip(vid_file).subclip(data['start_time'][0], data['stop_time'][0])
-    video.write_videofile("results/temp.MP4", logger=None)
-    video.close()
+    save_action_segment(cfg.data_dir, data["vid_id"][0], data["start_time"][0], data["stop_time"][0])
 
 
 def initialize(config_file):
@@ -121,7 +145,7 @@ def initialize(config_file):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     print("Initializing model...")
-    model, _, num_gpus = build_model(cfg, modality, device)
+    model, criterion, num_gpus = build_model(cfg, modality, device)
     print("Model initialized.")
     print("----------------------------------------------------------")
 
@@ -188,4 +212,4 @@ def initialize(config_file):
 
     epic_classes = EpicClasses(os.path.join(cfg.data_dir, "annotations"))
 
-    return cfg, model, dataset, epic_classes, device
+    return cfg, model, criterion, dataset, epic_classes, device

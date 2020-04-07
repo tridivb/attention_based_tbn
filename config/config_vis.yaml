@@ -6,7 +6,7 @@ data:
     file_ext: wav
     read_audio_pickle: true
     sampling_rate: 24000
-    spec_type: "stft"
+    spec_type: stft
   dataset: epic
   flow:
     dir_prefix: flow_pickle
@@ -37,7 +37,7 @@ data:
   train_scale_size: 256
   vid_fps: 60
 data_dir: /media/data/tridiv/epic
-exp_name: streamlit_test/
+exp_name: prior_kl_contrast_0.1/seen
 gpu_ids: []
 model:
   agg_type: avg
@@ -45,12 +45,13 @@ model:
   attention:
     attn_dropout: 0.5
     attn_heads: 4
+    contrast_thresh: 0.1
     enable: true
-    use_prior: false
+    loss_reduction: batchmean
     use_contrast: true
+    use_prior: true
     wt_loss: kl
-    loss_reduction: mean
-    wt_multiplier: 1.0
+    wt_multiplier: 0.5
   checkpoint_dir: tbn_weights
   freeze_base: true
   freeze_mode: partialbn
@@ -63,20 +64,19 @@ model:
     depth: 101
   vgg:
     type: '16'
-num_workers: 1
+num_workers: 16
 out_dir: /media/data/tridiv/epic
 test:
   annotation_file:
   - annotations/EPIC_train_action_labels.csv
-  batch_size: 5
+  batch_size: 1
   enable: true
   num_segments: 3
-  pre_trained: "/media/data/tridiv/epic/tbn_weights/prior_kl/unseen/epic_tbn_bninception_RGB_Audio.pth"
+  pre_trained: /media/data/tridiv/epic/tbn_weights/prior_kl_contrast_0.1/seen/epic_tbn_bninception_RGB_Audio.pth
   results_file:
   - ''
   save_results: false
   topk:
   - 1
   - 5
-  vid_list: data/val_split_unseen.txt
-  # vid_list: data/train_split_unseen.txt
+  vid_list: data/val_split_seen.txt

@@ -65,11 +65,11 @@ def test(
 
     with torch.no_grad():
         for data, target, action_id in tqdm(data_loader):
-            data = dict_to_device(data)
+            data, target = dict_to_device(data), dict_to_device(target)
 
             # Is this necessary?
-            if isinstance(target, dict):
-                target = dict_to_device(target)
+            # if isinstance(target, dict):
+            #     target = dict_to_device(target)
 
             out = model(data)
 
