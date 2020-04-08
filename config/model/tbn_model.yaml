@@ -7,10 +7,11 @@ model:
     attn_dropout: 0.5
     use_prior: True
     wt_loss: "kl"
+    wt_multiplier: 1.0
+    loss_reduction: "batchmean"
     use_contrast: True
     contrast_thresh: 0.1
-    loss_reduction: "batchmean"
-    wt_multiplier: 1.0
+    contrast_multiplier: 1.0
   resnet:
     depth: 101
   vgg:

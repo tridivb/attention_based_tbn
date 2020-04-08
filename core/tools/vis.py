@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import os
+import datetime
 import numpy as np
 import torch
 import torchvision
@@ -17,8 +18,9 @@ from core.dataset import Video_Dataset, EpicClasses
 from core.utils import get_modality
 from core.dataset.transform import *
 
-def get_interest_points(model, criterion, dataset, device, topk=5):
+def get_interest_points(model, dataset, device, topk=5):
     losses = []
+    criterion = torch.nn.MSELoss()
     dict_to_device = TransferTensorDict(device)
     data_loader = torch.utils.data.DataLoader(
         dataset,
@@ -31,8 +33,9 @@ def get_interest_points(model, criterion, dataset, device, topk=5):
         for data, target, _ in tqdm(data_loader):
             data, target = dict_to_device(data), dict_to_device(target)
             out = model(data)
-            loss, _ = model.get_loss(criterion, target, out)
-            losses.append(loss["prior"].item())
+            b, n, _, _ = target["weights"].shape
+            loss = criterion(out["weights"].view(b * n, -1), target["weights"].view(b * n, -1))
+            losses.append(loss.item())
             
     interest_pts = np.array(losses).argsort()[::-1] + 1
     return interest_pts[:topk]
@@ -84,7 +87,8 @@ def visualize(cfg, model, dataset, index, epic_classes, device):
         )
         img = img.resize((256, 256))
         axarr[0, idx].imshow(img)
-        axarr[0, idx].set_title("Time: {:.3f} seconds".format(rgb_indices[idx]/cfg.data.vid_fps))
+        tm = str(datetime.timedelta(seconds=rgb_indices[idx]/cfg.data.vid_fps))[0:-3]
+        axarr[0, idx].set_title(f"Time: {tm}")
         axarr[1, idx].imshow(spec[idx], cmap="jet", origin="lowest", aspect="auto")
         axarr[2, idx].plot(x, weights[idx].squeeze(0))
         axarr[2, idx].set_ylim([0, 1])
@@ -145,7 +149,7 @@ def initialize(config_file):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     print("Initializing model...")
-    model, criterion, num_gpus = build_model(cfg, modality, device)
+    model, _, num_gpus = build_model(cfg, modality, device)
     print("Model initialized.")
     print("----------------------------------------------------------")
 
@@ -212,4 +216,4 @@ def initialize(config_file):
 
     epic_classes = EpicClasses(os.path.join(cfg.data_dir, "annotations"))
 
-    return cfg, model, criterion, dataset, epic_classes, device
+    return cfg, model, dataset, epic_classes, device

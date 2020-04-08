@@ -45,11 +45,11 @@ model:
   attention:
     attn_dropout: 0.5
     attn_heads: 4
-    contrast_thresh: 0.1
+    contrast_thresh: 0.05
     enable: true
     loss_reduction: batchmean
     use_contrast: true
-    use_prior: true
+    use_prior: false
     wt_loss: kl
     wt_multiplier: 0.5
   checkpoint_dir: tbn_weights
@@ -72,7 +72,7 @@ test:
   batch_size: 1
   enable: true
   num_segments: 3
-  pre_trained: /media/data/tridiv/epic/tbn_weights/prior_kl_contrast_0.1/seen/epic_tbn_bninception_RGB_Audio.pth
+  pre_trained: /media/data/tridiv/epic/tbn_weights/prior_kl_contrast_0.05/seen/epic_tbn_bninception_RGB_Audio.pth
   results_file:
   - ''
   save_results: false

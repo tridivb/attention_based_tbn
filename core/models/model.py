@@ -247,7 +247,7 @@ class TBNModel(nn.Module):
             wts = preds["weights"].reshape(b * n, -1)
             if self.cfg.model.attention.use_contrast:
                 loss["contrast"] = criterion["contrast"](wts)
-                loss["total"] += loss["contrast"]
+                loss["total"] += self.cfg.model.attention.contrast_multiplier * loss["contrast"]
             if self.cfg.model.attention.use_prior:
                 prior = target["weights"].reshape(b * n, -1)
                 if self.cfg.model.attention.wt_loss == "kl":
