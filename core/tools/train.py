@@ -8,6 +8,7 @@ import torch
 import torch.optim as optim
 import torchvision
 from tqdm import tqdm
+from warmup_scheduler import GradualWarmupScheduler
 
 from core.models import build_model
 from core.utils import (
@@ -199,6 +200,9 @@ def run_trainer(cfg, logger, modality, writer):
             weight_decay=cfg.train.optim.weight_decay,
         )
         lr_scheduler = None
+        
+    if lr_scheduler and cfg.train.warmup.enable:
+        scheduler_warmup = GradualWarmupScheduler(optimizer, multiplier=cfg.train.warmup.multiplier, total_epoch=cfg.train.warmup.epochs, after_scheduler=lr_scheduler)
 
     if cfg.train.pre_trained:
         logger.info("Loading pre-trained weights...")
@@ -260,10 +264,15 @@ def run_trainer(cfg, logger, modality, writer):
             for k in val_acc_hist.keys():
                 val_acc_hist[k].append(val_acc[k])
         else:
-            val_loss = 0
+            val_loss = None
+            val_acc = None
+            confusion_matrix = None
 
         if lr_scheduler:
-            lr_scheduler.step()
+            if cfg.train.warmup.enable:
+                scheduler_warmup.step(epoch+1)
+            else:
+                lr_scheduler.step()
 
         if cfg.val.enable and val_acc["all_class"][0] > best_acc:
             save_checkpoint(
@@ -296,7 +305,7 @@ def run_trainer(cfg, logger, modality, writer):
         hours, minutes, seconds = get_time_diff(epoch_start_time, time.time())
 
         logger.info("----------------------------------------------------------")
-        logger.info(f"Epoch: [{epoch + 1}/{epochs}]")
+        logger.info(f"Epoch: [{epoch + 1}/{epochs}] || Learning Rate: {optimizer.param_groups[0]['lr']}")
         logger.info(f"Train_loss: {train_loss}")
         logger.info(f"Val_Loss: {val_loss}")
         logger.info("----------------------------------------------------------")
@@ -306,14 +315,17 @@ def run_trainer(cfg, logger, modality, writer):
         logger.info(json.dumps(val_acc, indent=2))
         logger.info("----------------------------------------------------------")
 
+        plotter.plot_scalar(optimizer.param_groups[0]["lr"], epoch, "train/learning_rate")
         for k in train_loss.keys():
             plotter.plot_scalar(train_loss[k], epoch, f"train/{k}_loss")
-            plotter.plot_scalar(val_loss[k], epoch, f"val/{k}_loss")
-        for cls, acc in val_acc.items():
-            for k, v in enumerate(acc):
-                plotter.plot_scalar(
-                    v, epoch, f"val/accuracy/{cls}_top_{cfg.val.topk[k]}"
-                )
+            if cfg.val.enable:
+                plotter.plot_scalar(val_loss[k], epoch, f"val/{k}_loss")
+        if cfg.val.enable:
+            for cls, acc in val_acc.items():
+                for k, v in enumerate(acc):
+                    plotter.plot_scalar(
+                        v, epoch, f"val/accuracy/{cls}_top_{cfg.val.topk[k]}"
+                    )
 
     hours, minutes, seconds = get_time_diff(start_time, time.time())
     logger.info(
