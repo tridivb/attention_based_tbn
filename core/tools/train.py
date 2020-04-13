@@ -301,6 +301,18 @@ def run_trainer(cfg, logger, modality, writer):
             scheduler=lr_scheduler,
             filename=checkpoint,
         )
+        
+        plotter.plot_scalar(optimizer.param_groups[0]["lr"], epoch, "train/learning_rate")
+        for k in train_loss.keys():
+            plotter.plot_scalar(train_loss[k], epoch, f"train/{k}_loss")
+            if cfg.val.enable:
+                plotter.plot_scalar(val_loss[k], epoch, f"val/{k}_loss")
+        if cfg.val.enable:
+            for cls, acc in val_acc.items():
+                for k, v in enumerate(acc):
+                    plotter.plot_scalar(
+                        v, epoch, f"val/accuracy/{cls}_top_{cfg.val.topk[k]}"
+                    )
 
         hours, minutes, seconds = get_time_diff(epoch_start_time, time.time())
 
@@ -314,18 +326,7 @@ def run_trainer(cfg, logger, modality, writer):
         logger.info(f"Accuracy Top {cfg.val.topk}:")
         logger.info(json.dumps(val_acc, indent=2))
         logger.info("----------------------------------------------------------")
-
-        plotter.plot_scalar(optimizer.param_groups[0]["lr"], epoch, "train/learning_rate")
-        for k in train_loss.keys():
-            plotter.plot_scalar(train_loss[k], epoch, f"train/{k}_loss")
-            if cfg.val.enable:
-                plotter.plot_scalar(val_loss[k], epoch, f"val/{k}_loss")
-        if cfg.val.enable:
-            for cls, acc in val_acc.items():
-                for k, v in enumerate(acc):
-                    plotter.plot_scalar(
-                        v, epoch, f"val/accuracy/{cls}_top_{cfg.val.topk[k]}"
-                    )
+        
 
     hours, minutes, seconds = get_time_diff(start_time, time.time())
     logger.info(
