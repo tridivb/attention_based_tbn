@@ -89,7 +89,7 @@ def train(
                 )
 
         optimizer.step()
-        scheduler.step(epoch+batch_no/no_batches)
+#         scheduler.step(epoch+batch_no/no_batches)
 
         if batch_no == 0 or (batch_no + 1) % batch_interval == 0:
             logger.info(
@@ -190,12 +190,12 @@ def run_trainer(cfg, logger, modality, writer):
             momentum=cfg.train.optim.momentum,
             weight_decay=cfg.train.optim.weight_decay,
         )
-#         lr_scheduler = optim.lr_scheduler.MultiStepLR(
-#             optimizer,
-#             milestones=cfg.train.scheduler.lr_steps,
-#             gamma=cfg.train.scheduler.lr_decay,
-#         )
-        lr_scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=5, T_mult=8)
+        lr_scheduler = optim.lr_scheduler.StepLR(
+            optimizer,
+            step_size=cfg.train.scheduler.lr_steps[0],
+            gamma=cfg.train.scheduler.lr_decay,
+        )
+#         lr_scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=5, T_mult=8)
     elif cfg.train.optim.type.lower() == "adam":
         optimizer = optim.Adam(
             model.parameters(),
@@ -272,11 +272,11 @@ def run_trainer(cfg, logger, modality, writer):
             val_acc = None
             confusion_matrix = None
 
-#         if lr_scheduler:
-#             if cfg.train.warmup.enable:
-#                 scheduler_warmup.step(epoch+1)
-#             else:
-#                 lr_scheduler.step()
+        if lr_scheduler:
+            if cfg.train.warmup.enable:
+                scheduler_warmup.step(epoch+1)
+            else:
+                lr_scheduler.step()
 
         if cfg.val.enable and val_acc["all_class"][0] > best_acc:
             save_checkpoint(
