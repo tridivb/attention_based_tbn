@@ -18,15 +18,13 @@ from core.dataset import Video_Dataset, EpicClasses
 from core.utils import get_modality
 from core.dataset.transform import *
 
+
 def get_interest_points(model, dataset, device, topk=5):
     losses = []
     criterion = torch.nn.MSELoss()
     dict_to_device = TransferTensorDict(device)
     data_loader = torch.utils.data.DataLoader(
-        dataset,
-        batch_size=1,
-        shuffle=False,
-        num_workers=8,
+        dataset, batch_size=1, shuffle=False, num_workers=8,
     )
     model.eval()
     with torch.no_grad():
@@ -34,18 +32,21 @@ def get_interest_points(model, dataset, device, topk=5):
             data, target = dict_to_device(data), dict_to_device(target)
             out = model(data)
             b, n, _, _ = target["weights"].shape
-            loss = criterion(out["weights"].view(b * n, -1), target["weights"].view(b * n, -1))
+            loss = criterion(
+                out["weights"].view(b * n, -1), target["weights"].view(b * n, -1)
+            )
             losses.append(loss.item())
-            
+
     interest_pts = np.array(losses).argsort()[::-1] + 1
     return interest_pts[:topk]
+
 
 def save_action_segment(data_dir, vid_id, start_time, stop_time):
     vid_file = os.path.join(data_dir, f"vid_symlinks/{vid_id}.MP4")
     video = mpe.VideoFileClip(vid_file).subclip(start_time, stop_time)
     video.write_videofile("results/temp.MP4", logger=None)
     video.close()
-            
+
 
 def visualize(cfg, model, dataset, index, epic_classes, device):
     dict_to_device = TransferTensorDict(device)
@@ -87,7 +88,7 @@ def visualize(cfg, model, dataset, index, epic_classes, device):
         )
         img = img.resize((256, 256))
         axarr[0, idx].imshow(img)
-        tm = str(datetime.timedelta(seconds=rgb_indices[idx]/cfg.data.vid_fps))[0:-3]
+        tm = str(datetime.timedelta(seconds=rgb_indices[idx] / cfg.data.vid_fps))[0:-3]
         axarr[0, idx].set_title(f"Time: {tm}")
         axarr[1, idx].imshow(spec[idx], cmap="jet", origin="lowest", aspect="auto")
         axarr[2, idx].plot(x, weights[idx].squeeze(0))
@@ -122,8 +123,10 @@ def visualize(cfg, model, dataset, index, epic_classes, device):
     fig.suptitle(f"Video Id: {data['vid_id'][0]}", fontsize=20)
 
     fig.savefig("results/vis.png")
-    
-    save_action_segment(cfg.data_dir, data["vid_id"][0], data["start_time"][0], data["stop_time"][0])
+
+    save_action_segment(
+        cfg.data_dir, data["vid_id"][0], data["start_time"][0], data["stop_time"][0]
+    )
 
 
 def initialize(config_file):

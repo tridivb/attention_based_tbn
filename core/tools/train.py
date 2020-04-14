@@ -89,7 +89,7 @@ def train(
                 )
 
         optimizer.step()
-#         scheduler.step(epoch+batch_no/no_batches)
+        #         scheduler.step(epoch+batch_no/no_batches)
 
         if batch_no == 0 or (batch_no + 1) % batch_interval == 0:
             logger.info(
@@ -190,12 +190,12 @@ def run_trainer(cfg, logger, modality, writer):
             momentum=cfg.train.optim.momentum,
             weight_decay=cfg.train.optim.weight_decay,
         )
-        lr_scheduler = optim.lr_scheduler.StepLR(
+        lr_scheduler = optim.lr_scheduler.MultiStepLR(
             optimizer,
-            step_size=cfg.train.scheduler.lr_steps[0],
+            milestones=cfg.train.scheduler.lr_steps,
             gamma=cfg.train.scheduler.lr_decay,
         )
-#         lr_scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=5, T_mult=8)
+    #         lr_scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=5, T_mult=8)
     elif cfg.train.optim.type.lower() == "adam":
         optimizer = optim.Adam(
             model.parameters(),
@@ -204,9 +204,14 @@ def run_trainer(cfg, logger, modality, writer):
             weight_decay=cfg.train.optim.weight_decay,
         )
         lr_scheduler = None
-        
+
     if lr_scheduler and cfg.train.warmup.enable:
-        scheduler_warmup = GradualWarmupScheduler(optimizer, multiplier=cfg.train.warmup.multiplier, total_epoch=cfg.train.warmup.epochs, after_scheduler=lr_scheduler)
+        scheduler_warmup = GradualWarmupScheduler(
+            optimizer,
+            multiplier=cfg.train.warmup.multiplier,
+            total_epoch=cfg.train.warmup.epochs,
+            after_scheduler=lr_scheduler,
+        )
 
     if cfg.train.pre_trained:
         logger.info("Loading pre-trained weights...")
@@ -254,7 +259,16 @@ def run_trainer(cfg, logger, modality, writer):
     for epoch in range(start_epoch, epochs, 1):
         epoch_start_time = time.time()
         train_loss = train(
-            cfg, model, train_loader, optimizer, lr_scheduler, criterion, epoch, modality, logger, device
+            cfg,
+            model,
+            train_loader,
+            optimizer,
+            lr_scheduler,
+            criterion,
+            epoch,
+            modality,
+            logger,
+            device,
         )
 
         train_loss_hist.append(train_loss)
@@ -274,7 +288,7 @@ def run_trainer(cfg, logger, modality, writer):
 
         if lr_scheduler:
             if cfg.train.warmup.enable:
-                scheduler_warmup.step(epoch+1)
+                scheduler_warmup.step(epoch + 1)
             else:
                 lr_scheduler.step()
 
@@ -305,8 +319,10 @@ def run_trainer(cfg, logger, modality, writer):
             scheduler=lr_scheduler,
             filename=checkpoint,
         )
-        
-        plotter.plot_scalar(optimizer.param_groups[0]["lr"], epoch, "train/learning_rate")
+
+        plotter.plot_scalar(
+            optimizer.param_groups[0]["lr"], epoch, "train/learning_rate"
+        )
         for k in train_loss.keys():
             plotter.plot_scalar(train_loss[k], epoch, f"train/{k}_loss")
             if cfg.val.enable:
@@ -321,7 +337,9 @@ def run_trainer(cfg, logger, modality, writer):
         hours, minutes, seconds = get_time_diff(epoch_start_time, time.time())
 
         logger.info("----------------------------------------------------------")
-        logger.info(f"Epoch: [{epoch + 1}/{epochs}] || Learning Rate: {optimizer.param_groups[0]['lr']}")
+        logger.info(
+            f"Epoch: [{epoch + 1}/{epochs}] || Learning Rate: {optimizer.param_groups[0]['lr']}"
+        )
         logger.info(f"Train_loss: {train_loss}")
         logger.info(f"Val_Loss: {val_loss}")
         logger.info("----------------------------------------------------------")
@@ -330,10 +348,8 @@ def run_trainer(cfg, logger, modality, writer):
         logger.info(f"Accuracy Top {cfg.val.topk}:")
         logger.info(json.dumps(val_acc, indent=2))
         logger.info("----------------------------------------------------------")
-        
 
     hours, minutes, seconds = get_time_diff(start_time, time.time())
     logger.info(
         f"Training completed. Total time taken: {hours} hours, {minutes} minutes, {seconds} seconds"
     )
-

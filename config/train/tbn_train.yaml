@@ -14,7 +14,7 @@ train:
     lr_steps: [20]
     lr_decay: 1e-1
   warmup:
-    enable: True
+    enable: False
     multiplier: 1
     epochs: 5
   clip_grad: 20

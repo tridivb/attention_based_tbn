@@ -4,6 +4,7 @@ import torch.nn as nn
 import torchvision
 import numpy as np
 from collections import OrderedDict
+from torch.distributions import Categorical
 
 from .vgg import VGG
 from .resnet import Resnet
@@ -247,13 +248,20 @@ class TBNModel(nn.Module):
             wts = preds["weights"].reshape(b * n, -1)
             if self.cfg.model.attention.use_contrast:
                 loss["contrast"] = criterion["contrast"](wts)
-                loss["total"] += self.cfg.model.attention.contrast_multiplier * loss["contrast"]
+                loss["total"] += (
+                    self.cfg.model.attention.contrast_decay * loss["contrast"]
+                )
             if self.cfg.model.attention.use_prior:
                 prior = target["weights"].reshape(b * n, -1)
                 if self.cfg.model.attention.wt_loss == "kl":
                     wts = torch.log(wts + 1e-7)
                 loss["prior"] = criterion["prior"](wts, prior)
-                loss["total"] += self.cfg.model.attention.wt_multiplier * loss["prior"]
+                loss["total"] += self.cfg.model.attention.wt_decay * loss["prior"]
+            if self.cfg.model.attention.use_entropy:
+                loss["entropy"] = Categorical(probs=wts + 1e-6).entropy().mean()
+                loss["total"] += (
+                    loss["entropy"] * self.cfg.model.attention.entropy_decay
+                )
 
         return loss, batch_size
 

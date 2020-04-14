@@ -488,27 +488,27 @@ class Video_Dataset(Dataset):
     def _get_attn_weights(self, spec, index, start_time):
         """
         """
-#         loudness = []
-#         win_size = int(spec.shape[1] / 25)
-#         for idx in range(0, spec.shape[1], win_size):
-#             if idx + win_size <= spec.shape[1]:
-#                 loudness.append(np.max(spec[:, idx:idx+win_size]))
-#         loudness = np.array(loudness)
-#         loudest_loc = loudness.argsort()[-1]
-#         std = np.std(loudness)
-#         sigma = min(2/std, 2.5)
-#         gt_attn_wts = cv2.getGaussianKernel(25, sigma=sigma)
-#         min_val = gt_attn_wts.min()
+        #         loudness = []
+        #         win_size = int(spec.shape[1] / 25)
+        #         for idx in range(0, spec.shape[1], win_size):
+        #             if idx + win_size <= spec.shape[1]:
+        #                 loudness.append(np.max(spec[:, idx:idx+win_size]))
+        #         loudness = np.array(loudness)
+        #         loudest_loc = loudness.argsort()[-1]
+        #         std = np.std(loudness)
+        #         sigma = min(2/std, 2.5)
+        #         gt_attn_wts = cv2.getGaussianKernel(25, sigma=sigma)
+        #         min_val = gt_attn_wts.min()
 
-#         mean_loc = gt_attn_wts.shape[0] // 2
-#         new_mean_loc = loudest_loc
-#         if new_mean_loc <= gt_attn_wts.shape[0] and (new_mean_loc < mean_loc - 2 or new_mean_loc > mean_loc + 2):
-#             gt_attn_wts = np.roll(gt_attn_wts, new_mean_loc - mean_loc)
-#             if new_mean_loc - 6 > 0:
-#                 gt_attn_wts[: new_mean_loc - 6] = min_val
-#             if new_mean_loc + 6 < gt_attn_wts.shape[0]:
-#                 gt_attn_wts[new_mean_loc + 6 :] = min_val
-                
+        #         mean_loc = gt_attn_wts.shape[0] // 2
+        #         new_mean_loc = loudest_loc
+        #         if new_mean_loc <= gt_attn_wts.shape[0] and (new_mean_loc < mean_loc - 2 or new_mean_loc > mean_loc + 2):
+        #             gt_attn_wts = np.roll(gt_attn_wts, new_mean_loc - mean_loc)
+        #             if new_mean_loc - 6 > 0:
+        #                 gt_attn_wts[: new_mean_loc - 6] = min_val
+        #             if new_mean_loc + 6 < gt_attn_wts.shape[0]:
+        #                 gt_attn_wts[new_mean_loc + 6 :] = min_val
+
         gt_attn_wts = cv2.getGaussianKernel(25, sigma=1.5)
         mean_loc = gt_attn_wts.shape[0] // 2
         ind_time = float(index / self.vid_fps)

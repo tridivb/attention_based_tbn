@@ -8,6 +8,7 @@ class VGG(nn.Module):
     """
     VGG module
     """
+
     def __init__(self, model_type, modality, in_channels):
         super(VGG, self).__init__()
 
