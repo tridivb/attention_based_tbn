@@ -81,12 +81,13 @@ class Metric(object):
         if self.multi_class:
             self.loss["all_class"] += batch_loss["all_class"].item()
 
-        if self.cfg.model.attention.use_prior:
-            self.loss["prior"] += batch_loss["prior"].item()
-        if self.cfg.model.attention.use_contrast:
-            self.loss["contrast"] += batch_loss["contrast"].item()
-        if self.cfg.model.attention.use_entropy:
-            self.loss["entropy"] += batch_loss["entropy"].item()
+        if self.cfg.model.attention.enable:
+            if self.cfg.model.attention.use_prior:
+                self.loss["prior"] += batch_loss["prior"].item()
+            if self.cfg.model.attention.use_contrast:
+                self.loss["contrast"] += batch_loss["contrast"].item()
+            if self.cfg.model.attention.use_entropy:
+                self.loss["entropy"] += batch_loss["entropy"].item()
 
         self.loss["total"] += batch_loss["total"].item()
 

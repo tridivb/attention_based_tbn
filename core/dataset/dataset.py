@@ -373,6 +373,9 @@ class Video_Dataset(Dataset):
                     "Failed to read audio sample {} with error {}".format(aud_file, e)
                 )
 
+        # sample[self.aud_sampling_rate: ] = sample[0: -self.aud_sampling_rate]
+        # sample[0: self.aud_sampling_rate] = -1.0
+
         return sample
 
     def _get_audio_segment(self, frame_idx, aud_sample):
@@ -406,6 +409,9 @@ class Video_Dataset(Dataset):
             start_frame = max_len - min_len
 
         sample = aud_sample[start_frame : start_frame + min_len]
+        # shift = int(min_len - self.aud_sampling_rate)
+        # sample[self.aud_sampling_rate: ] = sample[0: shift]
+        # sample[0: self.aud_sampling_rate] = -1.0
 
         spec = self._get_spectrogram(sample)
         gt_attn_wts = self._get_attn_weights(spec, frame_idx, start_sec)
@@ -509,17 +515,19 @@ class Video_Dataset(Dataset):
         #             if new_mean_loc + 6 < gt_attn_wts.shape[0]:
         #                 gt_attn_wts[new_mean_loc + 6 :] = min_val
 
-        gt_attn_wts = cv2.getGaussianKernel(25, sigma=1.5)
-        mean_loc = gt_attn_wts.shape[0] // 2
-        ind_time = float(index / self.vid_fps)
-        diff = ind_time - start_time
-        new_mean_loc = round(diff * 25 / self.audio_length)
-        if new_mean_loc <= gt_attn_wts.shape[0]:
-            gt_attn_wts = np.roll(gt_attn_wts, new_mean_loc - mean_loc)
-            if new_mean_loc - 6 > 0:
-                gt_attn_wts[: new_mean_loc - 6] = 1e-6
-            if new_mean_loc + 6 < gt_attn_wts.shape[0]:
-                gt_attn_wts[new_mean_loc + 6 :] = 1e-6
-        else:
-            gt_attn_wts = np.zeros(gt_attn_wts.shape, dtype=np.float32) + 1e-6
+        anchor = 25 / 4
+        win_size = round(self.audio_length * anchor)
+        gt_attn_wts = cv2.getGaussianKernel(win_size, sigma=1.5)
+        #         mean_loc = gt_attn_wts.shape[0] // 2
+        #         ind_time = float(index / self.vid_fps)
+        #         diff = ind_time - start_time
+        #         new_mean_loc = round(diff * win_size / self.audio_length)
+        #         if new_mean_loc <= gt_attn_wts.shape[0]:
+        #             gt_attn_wts = np.roll(gt_attn_wts, new_mean_loc - mean_loc)
+        #             if new_mean_loc - 6 > 0:
+        #                 gt_attn_wts[: new_mean_loc - 6] = 1e-6
+        #             if new_mean_loc + 6 < gt_attn_wts.shape[0]:
+        #                 gt_attn_wts[new_mean_loc + 6 :] = 1e-6
+        #         else:
+        #             gt_attn_wts = np.zeros(gt_attn_wts.shape, dtype=np.float32) + 1e-6
         return torch.tensor(gt_attn_wts).float()

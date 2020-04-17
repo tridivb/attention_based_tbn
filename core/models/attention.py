@@ -23,6 +23,7 @@ class PositionalEncoding(nn.Module):
         position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1).to(device)
         pe[:, 0::2] = torch.sin(position)
         pe[:, 1::2] = torch.cos(position)
+        # pe = torch.flip(pe, dims=(0,1))
         pe = pe.unsqueeze(0).transpose(1, 2)
         self.register_buffer("pe", pe)
 
