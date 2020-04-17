@@ -20,7 +20,9 @@ class PositionalEncoding(nn.Module):
         self.dropout = dropout
 
         pe = torch.zeros(max_len, dim_size)
-        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1).to(device)
+        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1).expand(
+            -1, dim_size // 2
+        ) * torch.arange(1, dim_size // 2 + 1)
         pe[:, 0::2] = torch.sin(position)
         pe[:, 1::2] = torch.cos(position)
         # pe = torch.flip(pe, dims=(0,1))
