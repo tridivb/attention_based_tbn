@@ -50,8 +50,10 @@ class TBNModel(nn.Module):
         # Create fusion layer (if applicable) and final linear classificatin layer
         if len(self.modality) > 1:
             if self.use_attention:
+                anchor = 25 / 4
+                attn_win_size = round(self.cfg.data.audio.audio_length * anchor)
                 self.pe = nn.Sequential(
-                    PositionalEncoding(10, max_len=25, device=device),
+                    PositionalEncoding(10, max_len=attn_win_size, device=device),
                     nn.Conv1d(1034, 1024, kernel_size=1),
                     nn.GroupNorm(64, 1024),
                 )
