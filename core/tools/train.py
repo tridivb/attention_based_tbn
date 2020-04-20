@@ -29,7 +29,6 @@ def train(
     scheduler,
     criterion,
     epoch,
-    modality,
     logger,
     device=torch.device("cuda"),
 ):
@@ -48,8 +47,6 @@ def train(
         Optimizer to use
     criterion: loss
         Loss function to use
-    modality: list
-        List of input modalities
     logger: logger
         Python logger
     device: torch.device, default = torch.device("cuda")
@@ -74,7 +71,7 @@ def train(
 
         out = model(data)
 
-        loss, batch_size = model.get_loss(criterion, target, out)
+        loss, batch_size = model.get_loss(criterion, target, out, epoch)
         metric.set_metrics(out, target, batch_size, loss)
         loss["total"].backward()
         loss_tracker += loss["total"].item()
@@ -266,7 +263,6 @@ def run_trainer(cfg, logger, modality, writer):
             lr_scheduler,
             criterion,
             epoch,
-            modality,
             logger,
             device,
         )

@@ -21,7 +21,7 @@ from core.dataset.transform import *
 
 def get_interest_points(model, dataset, device, topk=5):
     losses = []
-    criterion = torch.nn.MSELoss()
+    #     criterion = torch.nn.MSELoss()
     dict_to_device = TransferTensorDict(device)
     data_loader = torch.utils.data.DataLoader(
         dataset, batch_size=1, shuffle=False, num_workers=8,
@@ -32,10 +32,12 @@ def get_interest_points(model, dataset, device, topk=5):
             data, target = dict_to_device(data), dict_to_device(target)
             out = model(data)
             b, n, _, _ = target["weights"].shape
-            loss = criterion(
-                out["weights"].view(b * n, -1), target["weights"].view(b * n, -1)
-            )
-            losses.append(loss.item())
+            #             loss = criterion(
+            #                 out["weights"].view(b * n, -1), target["weights"].view(b * n, -1)
+            #             )
+            weights = out["weights"].view(b * n, -1)
+            entropy = (-1 * (weights * torch.log(weights + 1e-6)).sum(1)).mean()
+            losses.append(entropy.item())
 
     interest_pts = np.array(losses).argsort()[::-1] + 1
     return interest_pts[:topk]
@@ -93,7 +95,7 @@ def visualize(cfg, model, dataset, index, epic_classes, device):
         axarr[1, idx].imshow(spec[idx], cmap="jet", origin="lowest", aspect="auto")
         axarr[2, idx].plot(x, weights[idx].squeeze(0))
         axarr[2, idx].set_ylim([0, 1])
-        axarr[2, idx].set_xlim([0, 25])
+        axarr[2, idx].set_xlim([0, weights.shape[2] - 1])
 
     axarr[3, 0].bar(
         np.arange(len(verbs)),

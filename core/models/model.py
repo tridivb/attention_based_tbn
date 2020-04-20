@@ -208,7 +208,7 @@ class TBNModel(nn.Module):
 
         return out
 
-    def get_loss(self, criterion, target, preds):
+    def get_loss(self, criterion, target, preds, epoch=0):
         """
         Helper function calculate loss for each classficiation layer
         and then sum them up
@@ -250,9 +250,11 @@ class TBNModel(nn.Module):
             wts = preds["weights"].reshape(b * n, -1)
             if self.cfg.model.attention.use_contrast:
                 loss["contrast"] = criterion["contrast"](wts)
-                loss["total"] += (
-                    self.cfg.model.attention.contrast_decay * loss["contrast"]
-                )
+                if self.training and epoch < 10:
+                    multiplier = 0
+                else:
+                    multiplier = self.cfg.model.attention.contrast_decay
+                loss["total"] += multiplier * loss["contrast"]
             if self.cfg.model.attention.use_prior:
                 prior = target["weights"].reshape(b * n, -1)
                 if self.cfg.model.attention.wt_loss == "kl":
@@ -261,9 +263,11 @@ class TBNModel(nn.Module):
                 loss["total"] += self.cfg.model.attention.wt_decay * loss["prior"]
             if self.cfg.model.attention.use_entropy:
                 loss["entropy"] = Categorical(probs=wts + 1e-6).entropy().mean()
-                loss["total"] += (
-                    loss["entropy"] * self.cfg.model.attention.entropy_decay
-                )
+                if self.training and epoch < 10:
+                    multiplier = 0
+                else:
+                    multiplier = self.cfg.model.attention.entropy_decay
+                loss["total"] += multiplier * loss["entropy"]
 
         return loss, batch_size
 
