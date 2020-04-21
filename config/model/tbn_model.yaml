@@ -7,13 +7,14 @@ model:
     attn_dropout: 0.5
     use_prior: True
     wt_loss: "kl"
-    wt_decay: 1.0
+    wt_decay: 0.25
     loss_reduction: "batchmean"
     use_contrast: True
-    contrast_thresh: 0.1
-    contrast_decay: 1.0
+    contrast_thresh: 0.05
+    contrast_decay: 0.25
     use_entropy: True
-    entropy_decay: 1
+    entropy_decay: 0.25
+    decay_step: 10
   resnet:
     depth: 101
   vgg:
