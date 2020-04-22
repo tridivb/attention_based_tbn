@@ -64,12 +64,20 @@ def visualize(cfg, model, dataset, index, epic_classes, device):
     noun_preds = out["noun"].softmax(dim=1).topk(5, 1, largest=True, sorted=True)
     verb_t5 = [epic_classes.verbs[i.item()] for i in verb_preds.indices.squeeze()]
     noun_t5 = [epic_classes.nouns[i.item()] for i in noun_preds.indices.squeeze()]
-    verb_gt = epic_classes.verbs[target["class"]["verb"].item()]
-    noun_gt = epic_classes.nouns[target["class"]["noun"].item()]
+    if target["class"]["verb"].item() == -1 or target["class"]["noun"].item() == -1:
+        verb_gt = "Unknown"
+        noun_gt = "Unknown"
+        verb_scores = 0.0
+        noun_scores = 0.0
+    else:
+        verb_gt = epic_classes.verbs[target["class"]["verb"].item()]
+        noun_gt = epic_classes.nouns[target["class"]["noun"].item()]
+        verb_scores = 1.0
+        noun_scores = 1.0
     verbs = [verb_gt] + verb_t5
-    verb_scores = [1.0] + verb_preds.values.squeeze().tolist()
+    verb_scores = [verb_scores] + verb_preds.values.squeeze().tolist()
     nouns = [noun_gt] + noun_t5
-    noun_scores = [1.0] + noun_preds.values.squeeze().tolist()
+    noun_scores = [noun_scores] + noun_preds.values.squeeze().tolist()
 
     weights = out["weights"].cpu().numpy()
     spec = spec.numpy().squeeze()
@@ -131,45 +139,8 @@ def visualize(cfg, model, dataset, index, epic_classes, device):
     )
 
 
-def initialize(config_file):
-    """
-    Initialize model , data loaders, loss function, optimizer and evaluate the model
-
-    Args
-    ----------
-    cfg: dict
-        Dictionary of config parameters
-    modality: list
-        List of input modalities
-
-    """
-
-    cfg = OmegaConf.load(config_file)
-
-    np.random.seed(cfg.data.manual_seed)
-    torch.manual_seed(cfg.data.manual_seed)
-
+def create_dataset(cfg, action_list=None):
     modality = get_modality(cfg)
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    print("Initializing model...")
-    model, _, num_gpus = build_model(cfg, modality, device)
-    print("Model initialized.")
-    print("----------------------------------------------------------")
-
-    if cfg.test.pre_trained:
-        if os.path.exists(cfg.test.pre_trained):
-            print("Loading pre-trained weights {}...".format(cfg.test.pre_trained))
-            data_dict = torch.load(cfg.test.pre_trained, map_location="cpu")
-            if num_gpus > 1:
-                model.module.load_state_dict(data_dict["model"])
-            else:
-                model.load_state_dict(data_dict["model"])
-            print("Done.")
-            print("----------------------------------------------------------")
-        else:
-            raise Exception(f"{cfg.test.pre_trained} file not found.")
 
     transforms = {}
     for m in modality:
@@ -215,10 +186,58 @@ def initialize(config_file):
         modality,
         transform=transforms,
         mode="test",
+        action_list=action_list,
     )
     print("Done.")
     print("----------------------------------------------------------")
 
+    if len(dataset) > 0:
+        return dataset
+    else:
+        print("!!!! No data found for these videos and actions. Please try again !!!!")
+        return None
+
+
+def initialize(config_file):
+    """
+    Initialize model , data loaders, loss function, optimizer and evaluate the model
+
+    Args
+    ----------
+    cfg: dict
+        Dictionary of config parameters
+    modality: list
+        List of input modalities
+
+    """
+
+    cfg = OmegaConf.load(config_file)
+
+    np.random.seed(cfg.data.manual_seed)
+    torch.manual_seed(cfg.data.manual_seed)
+
+    modality = get_modality(cfg)
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    print("Initializing model...")
+    model, _, num_gpus = build_model(cfg, modality, device)
+    print("Model initialized.")
+    print("----------------------------------------------------------")
+
+    if cfg.test.pre_trained:
+        if os.path.exists(cfg.test.pre_trained):
+            print("Loading pre-trained weights {}...".format(cfg.test.pre_trained))
+            data_dict = torch.load(cfg.test.pre_trained, map_location="cpu")
+            if num_gpus > 1:
+                model.module.load_state_dict(data_dict["model"])
+            else:
+                model.load_state_dict(data_dict["model"])
+            print("Done.")
+            print("----------------------------------------------------------")
+        else:
+            raise Exception(f"{cfg.test.pre_trained} file not found.")
+
     epic_classes = EpicClasses(os.path.join(cfg.data_dir, "annotations"))
 
-    return cfg, model, dataset, epic_classes, device
+    return cfg, model, epic_classes, device

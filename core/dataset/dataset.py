@@ -12,6 +12,7 @@ import pandas as pd
 from collections import OrderedDict
 
 from .epic_record import EpicVideoRecord
+from .epic_class import EpicClasses
 from .transform import *
 
 
@@ -44,6 +45,7 @@ class Video_Dataset(Dataset):
         modality=["RGB"],
         transform=["ToTensor()"],
         mode="train",
+        action_list=None,
     ):
         self.cfg = cfg
         self.root_dir = cfg.data_dir
@@ -90,6 +92,30 @@ class Video_Dataset(Dataset):
             )
         if vid_list:
             self.annotations = self.annotations.query("video_id in @vid_list")
+        if action_list and len(action_list) > 0:
+            if self.cfg.data.dataset == "epic":
+                self.annotations["action_id"] = self.annotations[
+                    ["verb_class", "noun_class"]
+                ].apply(lambda x: f"({x.verb_class}, {x.noun_class})", axis=1)
+                self.epic_classes = EpicClasses(
+                    os.path.join(cfg.data_dir, "annotations")
+                )
+                verb_id_list = []
+                noun_id_list = []
+                action_id_list = []
+                for verb, noun in action_list:
+                    verb_id_list.append(verb)
+                    noun_id_list.append(noun)
+                    verb_id = self.epic_classes.verb_df.query(
+                        "verbs == @verb"
+                    ).verb_id.values[0]
+                    noun_id = self.epic_classes.noun_df.query(
+                        "nouns == @noun"
+                    ).noun_id.values[0]
+                    action_id_list.append(f"({verb_id}, {noun_id})")
+                self.annotations = self.annotations.query(
+                    "action_id in @action_id_list"
+                )
 
     def __len__(self):
         """
