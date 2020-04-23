@@ -248,26 +248,27 @@ class TBNModel(nn.Module):
             b, n, _, _ = target["weights"].shape
             assert preds["weights"].shape[0] == b * n
             wts = preds["weights"].reshape(b * n, -1)
+
             if self.cfg.model.attention.use_prior:
                 prior = target["weights"].reshape(b * n, -1)
+                if self.training and epoch + 1 < self.cfg.model.attention.decay_step:
+                    prior_multiplier = 0
+                    contrast_multiplier = 0
+                    entropy_multiplier = 0
+                else:
+                    prior_multiplier = self.cfg.model.attention.wt_decay
+                    contrast_multiplier = self.cfg.model.attention.contrast_decay
+                    entropy_multiplier = self.cfg.model.attention.entropy_decay
                 if self.cfg.model.attention.wt_loss == "kl":
                     wts = torch.log(wts + 1e-7)
                 loss["prior"] = criterion["prior"](wts, prior)
-                loss["total"] += self.cfg.model.attention.wt_decay * loss["prior"]
+                loss["total"] += prior_multiplier * loss["prior"]
             if self.cfg.model.attention.use_contrast:
                 loss["contrast"] = criterion["contrast"](wts)
-                if self.training and epoch + 1 < self.cfg.model.attention.decay_step:
-                    multiplier = 0
-                else:
-                    multiplier = self.cfg.model.attention.contrast_decay
-                loss["total"] += multiplier * loss["contrast"]
+                loss["total"] += contrast_multiplier * loss["contrast"]
             if self.cfg.model.attention.use_entropy:
                 loss["entropy"] = Categorical(probs=wts + 1e-6).entropy().mean()
-                if self.training and epoch + 1 < self.cfg.model.attention.decay_step:
-                    multiplier = 0
-                else:
-                    multiplier = self.cfg.model.attention.entropy_decay
-                loss["total"] += multiplier * loss["entropy"]
+                loss["total"] += entropy_multiplier * loss["entropy"]
 
         return loss, batch_size
 
