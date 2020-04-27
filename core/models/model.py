@@ -263,12 +263,12 @@ class TBNModel(nn.Module):
                     wts = torch.log(wts + 1e-7)
                 loss["prior"] = criterion["prior"](wts, prior)
                 loss["total"] += prior_multiplier * loss["prior"]
-            if self.cfg.model.attention.use_contrast:
-                loss["contrast"] = criterion["contrast"](wts)
-                loss["total"] += contrast_multiplier * loss["contrast"]
-            if self.cfg.model.attention.use_entropy:
-                loss["entropy"] = Categorical(probs=wts + 1e-6).entropy().mean()
-                loss["total"] += entropy_multiplier * loss["entropy"]
+                if self.cfg.model.attention.use_contrast:
+                    loss["contrast"] = criterion["contrast"](wts)
+                    loss["total"] += contrast_multiplier * loss["contrast"]
+                if self.cfg.model.attention.use_entropy:
+                    loss["entropy"] = Categorical(probs=wts + 1e-6).entropy().mean()
+                    loss["total"] += entropy_multiplier * loss["entropy"]
 
         return loss, batch_size
 
