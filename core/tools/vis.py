@@ -31,13 +31,18 @@ def get_interest_points(model, dataset, device, topk=5):
         for data, target, _ in tqdm(data_loader):
             data, target = dict_to_device(data), dict_to_device(target)
             out = model(data)
-            b, n, _, _ = target["weights"].shape
-            #             loss = criterion(
-            #                 out["weights"].view(b * n, -1), target["weights"].view(b * n, -1)
-            #             )
-            weights = out["weights"].view(b * n, -1)
-            entropy = (-1 * (weights * torch.log(weights + 1e-6)).sum(1)).mean()
-            losses.append(entropy.item())
+            if "weights" in out.keys():
+                b, n, _, _ = target["weights"].shape
+                #             loss = criterion(
+                #                 out["weights"].view(b * n, -1), target["weights"].view(b * n, -1)
+                #             )
+                weights = out["weights"].view(b * n, -1)
+                entropy = (-1 * (weights * torch.log(weights + 1e-6)).sum(1)).mean()
+                losses.append(entropy.item())
+            else:
+                raise Exception(
+                    "No attention weights found in model output. Please check if model initilization was correct."
+                )
 
     interest_pts = np.array(losses).argsort()[::-1] + 1
     return interest_pts[:topk]
@@ -79,14 +84,18 @@ def visualize(cfg, model, dataset, index, epic_classes, device):
     nouns = [noun_gt] + noun_t5
     noun_scores = [noun_scores] + noun_preds.values.squeeze().tolist()
 
-    weights = out["weights"].cpu().numpy()
+    if "weights" in out.keys():
+        weights = out["weights"].cpu().numpy()
+    else:
+        # in case of model without attention use dummy weights
+        weights = np.zeros((cfg.test.num_segments, 1, 25))
     spec = spec.numpy().squeeze()
     fig, axarr = plt.subplots(4, cfg.test.num_segments, figsize=(16, 16))
     axarr[0, 0].set_ylabel("RGB Frames", fontsize=10)
     axarr[1, 0].set_ylabel("Audio Spectrograms", fontsize=10)
     axarr[2, 0].set_ylabel("Attention Weights", fontsize=10)
     axarr[3, 0].set_ylabel("Classes")
-    for idx in range(weights.shape[0]):
+    for idx in range(cfg.test.num_segments):
         x = np.arange(weights.shape[2])
         img = Image.open(
             os.path.join(
