@@ -185,14 +185,18 @@ class TBNModel(nn.Module):
             base_model = getattr(self, "Base_{}".format(m))
             feature = base_model(input[m].view(b * n, c, h, w))
             if m == "Audio" and self.use_attention:
-                # feature = feature.squeeze(2) * attn_wts.view(b * n, -1).unsqueeze(1)
-                # feature = feature.sum(2)
-                feature = self.pe(feature)
-                feature = feature.transpose(1, 2).transpose(0, 1)
-                feature, att_wts = self.attention_layer(
-                    features[0].unsqueeze(0), feature, feature
-                )
-                feature = feature.squeeze(0)
+                if self.cfg.model.attention.use_fixed:
+                    feature = feature.squeeze(2) * input["weights"].view(
+                        b * n, -1
+                    ).unsqueeze(1)
+                    feature = feature.sum(2)
+                else:
+                    feature = self.pe(feature)
+                    feature = feature.transpose(1, 2).transpose(0, 1)
+                    feature, att_wts = self.attention_layer(
+                        features[0].unsqueeze(0), feature, feature
+                    )
+                    feature = feature.squeeze(0)
             features.extend([feature])
         features = torch.cat(features, dim=1)
 
@@ -203,7 +207,7 @@ class TBNModel(nn.Module):
 
         out = self._aggregate_scores(out, new_shape=(b, n, -1))
 
-        if self.use_attention:
+        if self.use_attention and not self.cfg.model.attention.use_fixed:
             out["weights"] = att_wts
 
         return out
@@ -244,11 +248,7 @@ class TBNModel(nn.Module):
 
         loss["total"] += loss["all_class"]
 
-        if self.use_attention:
-            b, n, _, _ = target["weights"].shape
-            assert preds["weights"].shape[0] == b * n
-            wts = preds["weights"].reshape(b * n, -1)
-
+        if self.use_attention and not self.cfg.model.attention.use_fixed:
             if self.training and epoch + 1 < self.cfg.model.attention.decay_step:
                 prior_multiplier = 0
                 contrast_multiplier = 0
@@ -258,7 +258,11 @@ class TBNModel(nn.Module):
                 contrast_multiplier = self.cfg.model.attention.contrast_decay
                 entropy_multiplier = self.cfg.model.attention.entropy_decay
 
+            wts = preds["weights"].squeeze(1)
+
             if self.cfg.model.attention.use_prior:
+                b, n, _, _ = target["weights"].shape
+                assert wts.shape[0] == b * n
                 prior = target["weights"].reshape(b * n, -1)
                 if self.cfg.model.attention.wt_loss == "kl":
                     wts = torch.log(wts + 1e-7)

@@ -160,10 +160,13 @@ class Video_Dataset(Dataset):
         data["stop_time"] = vid_record.stop_time
 
         indices = OrderedDict()
-        for m in self.modality:
-            # TODO This is ugly. Make it robust when using attention or create a different dataset
-            # class for sampling with attention
-            indices[m] = self._get_offsets(vid_record, m)
+        for m_no, m in enumerate(self.modality):
+            # Select synchronous indices if sampling type is TSN
+            # Select asynchronous indices if sampling type is TBN and mode is train
+            if m_no > 0 and self.cfg.data.sampling == "tsn":
+                indices[m] = indices[self.modality[0]]
+            else:
+                indices[m] = self._get_offsets(vid_record, m)
             # Read individual flow files
             if m == "Flow" and not self.read_flow_pickle:
                 frame_indices = (
@@ -172,7 +175,6 @@ class Video_Dataset(Dataset):
                 ).astype(np.int64)
                 data[m], _ = self._get_frames(m, vid_id, frame_indices)
             elif m == "Audio" and self.use_attention:
-                indices[m] = indices["RGB"]
                 data[m], gt_attn_wts = self._get_frames(m, vid_id, indices[m])
             else:
                 data[m], _ = self._get_frames(m, vid_id, indices[m])
@@ -182,7 +184,10 @@ class Video_Dataset(Dataset):
 
         target["class"] = vid_record.label
         if self.use_attention:
-            target["weights"] = gt_attn_wts
+            if self.cfg.model.attention.use_fixed:
+                data["weights"] = gt_attn_wts
+            elif self.cfg.model.attention.use_prior:
+                target["weights"] = gt_attn_wts
 
         if self.mode == "train":
             return data, target
@@ -543,7 +548,7 @@ class Video_Dataset(Dataset):
 
         anchor = 25 / 4
         win_size = round(self.audio_length * anchor)
-        gt_attn_wts = cv2.getGaussianKernel(win_size, sigma=1.5)
+        gt_attn_wts = cv2.getGaussianKernel(win_size, sigma=1)
         #         mean_loc = gt_attn_wts.shape[0] // 2
         #         ind_time = float(index / self.vid_fps)
         #         diff = ind_time - start_time

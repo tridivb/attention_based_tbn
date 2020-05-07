@@ -3,6 +3,7 @@ model:
   arch: "bninception"
   attention:
     enable: True
+    use_fixed: True
     attn_heads: 4
     attn_dropout: 0.5
     use_prior: True
