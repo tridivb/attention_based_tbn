@@ -67,18 +67,15 @@ def test(
         for data, target, action_id in tqdm(data_loader):
             data, target = dict_to_device(data), dict_to_device(target)
 
-            # Is this necessary?
-            # if isinstance(target, dict):
-            #     target = dict_to_device(target)
-
             out = model(data)
 
-            if isinstance(target, dict):
+            if isinstance(target["class"], dict):
                 loss, batch_size = model.get_loss(criterion, target, out)
                 metric.set_metrics(out, target, batch_size, loss)
+
             if cfg.test.save_results:
                 output["action_id"].extend([action_id])
-                for key in out.keys():
+                for key in cfg.model.num_classes.keys():
                     output[key].extend([out[key]])
 
     test_loss, test_acc, conf_mat = metric.get_metrics()
@@ -214,10 +211,10 @@ def run_tester(cfg, logger, modality):
             output_dict = results[3]
             if cfg.out_dir:
                 out_file = os.path.join(
-                    cfg.out_dir, "results", cfg.test.results_file[idx]
+                    cfg.out_dir, "inferences", cfg.test.results_file[idx]
                 )
             else:
-                out_file = os.path.join("./results", cfg.test.results_file[idx])
+                out_file = os.path.join("./inferences", cfg.test.results_file[idx])
             try:
                 save_scores(output_dict, out_file)
                 logger.info("Saved results to {}".format(out_file))
