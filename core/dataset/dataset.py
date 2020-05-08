@@ -12,6 +12,7 @@ import pandas as pd
 from collections import OrderedDict
 
 from .epic_record import EpicVideoRecord
+from .epic_class import EpicClasses
 from .transform import *
 
 
@@ -44,6 +45,7 @@ class Video_Dataset(Dataset):
         modality=["RGB"],
         transform=["ToTensor()"],
         mode="train",
+        action_list=None,
     ):
         self.cfg = cfg
         self.root_dir = cfg.data_dir
@@ -90,6 +92,30 @@ class Video_Dataset(Dataset):
             )
         if vid_list:
             self.annotations = self.annotations.query("video_id in @vid_list")
+        if action_list and len(action_list) > 0:
+            if self.cfg.data.dataset == "epic":
+                self.annotations["action_id"] = self.annotations[
+                    ["verb_class", "noun_class"]
+                ].apply(lambda x: f"({x.verb_class}, {x.noun_class})", axis=1)
+                self.epic_classes = EpicClasses(
+                    os.path.join(cfg.data_dir, "annotations")
+                )
+                verb_id_list = []
+                noun_id_list = []
+                action_id_list = []
+                for verb, noun in action_list:
+                    verb_id_list.append(verb)
+                    noun_id_list.append(noun)
+                    verb_id = self.epic_classes.verb_df.query(
+                        "verbs == @verb"
+                    ).verb_id.values[0]
+                    noun_id = self.epic_classes.noun_df.query(
+                        "nouns == @noun"
+                    ).noun_id.values[0]
+                    action_id_list.append(f"({verb_id}, {noun_id})")
+                self.annotations = self.annotations.query(
+                    "action_id in @action_id_list"
+                )
 
     def __len__(self):
         """
@@ -129,11 +155,18 @@ class Video_Dataset(Dataset):
         vid_record = EpicVideoRecord(self.annotations.iloc[index])
         vid_id = vid_record.untrimmed_video_name
 
-        indices = {}
-        for m in self.modality:
-            # TODO This is ugly. Make it robust when using attention or create a different dataset
-            # class for sampling with attention
-            indices[m] = self._get_offsets(vid_record, m)
+        data["vid_id"] = vid_id
+        data["start_time"] = vid_record.start_time
+        data["stop_time"] = vid_record.stop_time
+
+        indices = OrderedDict()
+        for m_no, m in enumerate(self.modality):
+            # Select synchronous indices if sampling type is TSN
+            # Select asynchronous indices if sampling type is TBN and mode is train
+            if m_no > 0 and self.cfg.data.sampling == "tsn":
+                indices[m] = indices[self.modality[0]]
+            else:
+                indices[m] = self._get_offsets(vid_record, m)
             # Read individual flow files
             if m == "Flow" and not self.read_flow_pickle:
                 frame_indices = (
@@ -142,17 +175,19 @@ class Video_Dataset(Dataset):
                 ).astype(np.int64)
                 data[m], _ = self._get_frames(m, vid_id, frame_indices)
             elif m == "Audio" and self.use_attention:
-                indices[m] = indices["RGB"]
-                data[m], gt_attn_wts = self._get_frames(
-                    m, vid_id, indices[m]
-                )
+                data[m], gt_attn_wts = self._get_frames(m, vid_id, indices[m])
             else:
                 data[m], _ = self._get_frames(m, vid_id, indices[m])
             data[m] = self._transform_data(data[m], m)
 
+        data["indices"] = indices
+
         target["class"] = vid_record.label
         if self.use_attention:
-            target["weights"] = gt_attn_wts
+            if self.cfg.model.attention.use_fixed:
+                data["weights"] = gt_attn_wts
+            elif self.cfg.model.attention.use_prior:
+                target["weights"] = gt_attn_wts
 
         if self.mode == "train":
             return data, target
@@ -235,9 +270,7 @@ class Video_Dataset(Dataset):
 
         for ind in indices:
             if modality == "Audio":
-                frame, gt_attn_wt = self._read_frames(
-                    ind, vid_id, modality, aud_sample
-                )
+                frame, gt_attn_wt = self._read_frames(ind, vid_id, modality, aud_sample)
                 if self.use_attention:
                     gt_attn_wts.extend(gt_attn_wt)
             else:
@@ -279,10 +312,7 @@ class Video_Dataset(Dataset):
         elif modality == "Flow":
             return self._read_flow_frames(frame_idx, vid_id)
         elif modality == "Audio":
-            spec, gt_attn_wts = self._get_audio_segment(
-                frame_idx,
-                aud_sample,
-            )
+            spec, gt_attn_wts = self._get_audio_segment(frame_idx, aud_sample,)
             return [spec], [gt_attn_wts]
 
     def _read_flow_frames(self, frame_idx, vid_id):
@@ -374,6 +404,9 @@ class Video_Dataset(Dataset):
                     "Failed to read audio sample {} with error {}".format(aud_file, e)
                 )
 
+        # sample[self.aud_sampling_rate: ] = sample[0: -self.aud_sampling_rate]
+        # sample[0: self.aud_sampling_rate] = -1.0
+
         return sample
 
     def _get_audio_segment(self, frame_idx, aud_sample):
@@ -407,9 +440,12 @@ class Video_Dataset(Dataset):
             start_frame = max_len - min_len
 
         sample = aud_sample[start_frame : start_frame + min_len]
+        # shift = int(min_len - self.aud_sampling_rate)
+        # sample[self.aud_sampling_rate: ] = sample[0: shift]
+        # sample[0: self.aud_sampling_rate] = -1.0
 
         spec = self._get_spectrogram(sample)
-        gt_attn_wts = self._get_attn_weights(frame_idx, start_sec)
+        gt_attn_wts = self._get_attn_weights(spec, frame_idx, start_sec)
 
         return spec, gt_attn_wts
 
@@ -486,21 +522,43 @@ class Video_Dataset(Dataset):
 
         return img_stack
 
-    def _get_attn_weights(self, index, start_time):
+    def _get_attn_weights(self, spec, index, start_time):
         """
         """
-        gt_attn_wts = cv2.getGaussianKernel(25, sigma=1.5)
-        mean_loc = gt_attn_wts.shape[0] // 2
-        ind_time = float(index / self.vid_fps)
-        diff = ind_time - start_time
-        new_mean_loc = round(diff * 25 / self.audio_length)
-        if new_mean_loc <= gt_attn_wts.shape[0]:
-            gt_attn_wts = np.roll(gt_attn_wts, new_mean_loc - mean_loc)
-            if new_mean_loc - 6 > 0:
-                gt_attn_wts[: new_mean_loc - 6] = 1e-6
-            if new_mean_loc + 6 < gt_attn_wts.shape[0]:
-                gt_attn_wts[new_mean_loc + 6 :] = 1e-6
-        else:
-            gt_attn_wts = np.zeros(gt_attn_wts.shape, dtype=np.float32) + 1e-6
-        # gt_attn_wts = np.ones((25, 1), dtype=np.float32) / 25
+        #         loudness = []
+        #         win_size = int(spec.shape[1] / 25)
+        #         for idx in range(0, spec.shape[1], win_size):
+        #             if idx + win_size <= spec.shape[1]:
+        #                 loudness.append(np.max(spec[:, idx:idx+win_size]))
+        #         loudness = np.array(loudness)
+        #         loudest_loc = loudness.argsort()[-1]
+        #         std = np.std(loudness)
+        #         sigma = min(2/std, 2.5)
+        #         gt_attn_wts = cv2.getGaussianKernel(25, sigma=sigma)
+        #         min_val = gt_attn_wts.min()
+
+        #         mean_loc = gt_attn_wts.shape[0] // 2
+        #         new_mean_loc = loudest_loc
+        #         if new_mean_loc <= gt_attn_wts.shape[0] and (new_mean_loc < mean_loc - 2 or new_mean_loc > mean_loc + 2):
+        #             gt_attn_wts = np.roll(gt_attn_wts, new_mean_loc - mean_loc)
+        #             if new_mean_loc - 6 > 0:
+        #                 gt_attn_wts[: new_mean_loc - 6] = min_val
+        #             if new_mean_loc + 6 < gt_attn_wts.shape[0]:
+        #                 gt_attn_wts[new_mean_loc + 6 :] = min_val
+
+        anchor = 25 / 4
+        win_size = round(self.audio_length * anchor)
+        gt_attn_wts = cv2.getGaussianKernel(win_size, sigma=1)
+        #         mean_loc = gt_attn_wts.shape[0] // 2
+        #         ind_time = float(index / self.vid_fps)
+        #         diff = ind_time - start_time
+        #         new_mean_loc = round(diff * win_size / self.audio_length)
+        #         if new_mean_loc <= gt_attn_wts.shape[0]:
+        #             gt_attn_wts = np.roll(gt_attn_wts, new_mean_loc - mean_loc)
+        #             if new_mean_loc - 6 > 0:
+        #                 gt_attn_wts[: new_mean_loc - 6] = 1e-6
+        #             if new_mean_loc + 6 < gt_attn_wts.shape[0]:
+        #                 gt_attn_wts[new_mean_loc + 6 :] = 1e-6
+        #         else:
+        #             gt_attn_wts = np.zeros(gt_attn_wts.shape, dtype=np.float32) + 1e-6
         return torch.tensor(gt_attn_wts).float()

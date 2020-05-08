@@ -3,12 +3,19 @@ model:
   arch: "bninception"
   attention:
     enable: True
+    use_fixed: True
     attn_heads: 4
     attn_dropout: 0.5
     use_prior: True
     wt_loss: "kl"
+    wt_decay: 0.25
     loss_reduction: "batchmean"
-    wt_multiplier: 0.5
+    use_contrast: True
+    contrast_thresh: 0.05
+    contrast_decay: 0.25
+    use_entropy: True
+    entropy_decay: 0.25
+    decay_step: 10
   resnet:
     depth: 101
   vgg:

@@ -4,6 +4,7 @@ import torch.nn as nn
 import torchvision
 import numpy as np
 from collections import OrderedDict
+from torch.distributions import Categorical
 
 from .vgg import VGG
 from .resnet import Resnet
@@ -49,12 +50,13 @@ class TBNModel(nn.Module):
         # Create fusion layer (if applicable) and final linear classificatin layer
         if len(self.modality) > 1:
             if self.use_attention:
+                anchor = 25 / 4
+                attn_win_size = round(self.cfg.data.audio.audio_length * anchor)
                 self.pe = nn.Sequential(
-                    PositionalEncoding(10, max_len=25, device=device),
+                    PositionalEncoding(10, max_len=attn_win_size, device=device),
                     nn.Conv1d(1034, 1024, kernel_size=1),
                     nn.GroupNorm(64, 1024),
                 )
-                print(cfg.model.attention.attn_dropout)
                 self.attention_layer = AttentionLayer(
                     1024,
                     cfg.model.attention.attn_heads,
@@ -183,14 +185,18 @@ class TBNModel(nn.Module):
             base_model = getattr(self, "Base_{}".format(m))
             feature = base_model(input[m].view(b * n, c, h, w))
             if m == "Audio" and self.use_attention:
-                # feature = feature.squeeze(2) * attn_wts.view(b * n, -1).unsqueeze(1)
-                # feature = feature.sum(2)
-                feature = self.pe(feature)
-                feature = feature.transpose(1, 2).transpose(0, 1)
-                feature, att_wts = self.attention_layer(
-                    features[0].unsqueeze(0), feature, feature
-                )
-                feature = feature.squeeze(0)
+                if self.cfg.model.attention.use_fixed:
+                    feature = feature.squeeze(2) * input["weights"].view(
+                        b * n, -1
+                    ).unsqueeze(1)
+                    feature = feature.sum(2)
+                else:
+                    feature = self.pe(feature)
+                    feature = feature.transpose(1, 2).transpose(0, 1)
+                    feature, att_wts = self.attention_layer(
+                        features[0].unsqueeze(0), feature, feature
+                    )
+                    feature = feature.squeeze(0)
             features.extend([feature])
         features = torch.cat(features, dim=1)
 
@@ -201,12 +207,12 @@ class TBNModel(nn.Module):
 
         out = self._aggregate_scores(out, new_shape=(b, n, -1))
 
-        if self.use_attention and self.cfg.model.attention.use_prior:
+        if self.use_attention and not self.cfg.model.attention.use_fixed:
             out["weights"] = att_wts
 
         return out
 
-    def get_loss(self, criterion, target, preds):
+    def get_loss(self, criterion, target, preds, epoch=0):
         """
         Helper function calculate loss for each classficiation layer
         and then sum them up
@@ -242,13 +248,32 @@ class TBNModel(nn.Module):
 
         loss["total"] += loss["all_class"]
 
-        if self.use_attention and self.cfg.model.attention.use_prior:
-            b, n, _, _ = target["weights"].shape
-            assert preds["weights"].shape[0] == b * n
-            prior = target["weights"].reshape(b * n, -1)
-            wts = preds["weights"].reshape(b * n, -1)
-            loss["prior"] = criterion["prior"](wts, prior)
-            loss["total"] += self.cfg.model.attention.wt_multiplier * loss["prior"]
+        if self.use_attention and not self.cfg.model.attention.use_fixed:
+            if self.training and epoch + 1 < self.cfg.model.attention.decay_step:
+                prior_multiplier = 0
+                contrast_multiplier = 0
+                entropy_multiplier = 0
+            else:
+                prior_multiplier = self.cfg.model.attention.wt_decay
+                contrast_multiplier = self.cfg.model.attention.contrast_decay
+                entropy_multiplier = self.cfg.model.attention.entropy_decay
+
+            wts = preds["weights"].squeeze(1)
+
+            if self.cfg.model.attention.use_prior:
+                b, n, _, _ = target["weights"].shape
+                assert wts.shape[0] == b * n
+                prior = target["weights"].reshape(b * n, -1)
+                if self.cfg.model.attention.wt_loss == "kl":
+                    wts = torch.log(wts + 1e-7)
+                loss["prior"] = criterion["prior"](wts, prior)
+                loss["total"] += prior_multiplier * loss["prior"]
+            if self.cfg.model.attention.use_contrast:
+                loss["contrast"] = criterion["contrast"](wts)
+                loss["total"] += contrast_multiplier * loss["contrast"]
+            if self.cfg.model.attention.use_entropy:
+                loss["entropy"] = Categorical(probs=wts + 1e-6).entropy().mean()
+                loss["total"] += entropy_multiplier * loss["entropy"]
 
         return loss, batch_size
 

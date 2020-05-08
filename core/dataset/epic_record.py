@@ -14,6 +14,14 @@ class EpicVideoRecord(VideoRecord):
         return self._series["video_id"]
 
     @property
+    def start_time(self):
+        return self._series["start_timestamp"]
+
+    @property
+    def stop_time(self):
+        return self._series["stop_timestamp"]
+
+    @property
     def start_frame(self):
         return {
             "RGB": self._series["start_frame"] - 1,

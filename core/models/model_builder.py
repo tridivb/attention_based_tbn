@@ -3,6 +3,7 @@ from collections import OrderedDict
 
 from .model import TBNModel
 from .dataparallel import DataParallel
+from .contrast_loss import ContrastLoss
 
 # Supported model types
 _MODEL_TYPES = {
@@ -57,10 +58,16 @@ def build_model(cfg, modality, device):
     criterion = OrderedDict()
     criterion[cfg.model.loss_fn] = _LOSS_TYPES[cfg.model.loss_fn]()
 
-    if cfg.model.attention.enable and cfg.model.attention.use_prior:
-        criterion["prior"] = _LOSS_TYPES[cfg.model.attention.wt_loss](
-            reduction=cfg.model.attention.loss_reduction
-        )
+    if cfg.model.attention.enable:
+        if cfg.model.attention.use_prior:
+            criterion["prior"] = _LOSS_TYPES[cfg.model.attention.wt_loss](
+                reduction=cfg.model.attention.loss_reduction
+            )
+        if cfg.model.attention.use_contrast:
+            criterion["contrast"] = ContrastLoss(
+                threshold=cfg.model.attention.contrast_thresh,
+                reduction=cfg.model.attention.loss_reduction,
+            )
 
     # Use multi-gpus if set in config
     if num_gpus > 1 and device.type == "cuda":

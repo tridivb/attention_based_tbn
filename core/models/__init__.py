@@ -6,4 +6,4 @@ from .model import TBNModel
 from .resnet import Resnet
 from .vgg import VGG
 from .bn_inception_audio import BNInception_Audio
-from .identity import Identity
+from .contrast_loss import ContrastLoss

@@ -112,3 +112,4 @@ log/
 jobs/
 config/.local/
 weights/
+*.MP4

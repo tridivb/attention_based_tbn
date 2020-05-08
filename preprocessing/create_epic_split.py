@@ -3,6 +3,7 @@ import argparse
 import random
 import pandas as pd
 
+
 def parse_args():
     """
     Helper function to parse command line arguments
@@ -10,9 +11,7 @@ def parse_args():
 
     parser = argparse.ArgumentParser(description="create dataset split")
     parser.add_argument(
-        "annotation",
-        help="annoation file to read",
-        type=str,
+        "annotation", help="annoation file to read", type=str,
     )
     parser.add_argument(
         "--out_dir",
@@ -31,6 +30,7 @@ def parse_args():
     )
     return parser.parse_args()
 
+
 def write_list_to_file(file, lst):
     """
     Helper function to write a list to a file
@@ -45,7 +45,8 @@ def write_list_to_file(file, lst):
 
     with open(file, "w") as f:
         for item in sorted(lst):
-            f.write("%s\n"%item)
+            f.write("%s\n" % item)
+
 
 def create_split(args):
     """
@@ -57,7 +58,9 @@ def create_split(args):
     elif args.annotation.endswith("pkl"):
         df = pd.read_pickle(args.annotation)
     else:
-        raise Exception("Incorrect file extension for annotation file. Must be a csv or pkl file")
+        raise Exception(
+            "Incorrect file extension for annotation file. Must be a csv or pkl file"
+        )
 
     train_list = []
     val_list = []
@@ -83,7 +86,8 @@ def create_split(args):
     write_list_to_file(train_list_file, train_list)
     write_list_to_file(val_list_file, val_list)
 
+
 if __name__ == "__main__":
-    
+
     args = parse_args()
     create_split(args)

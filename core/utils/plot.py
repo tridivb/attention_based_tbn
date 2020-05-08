@@ -9,6 +9,7 @@ class Plotter(object):
     """
     Class to initialize plotter for graphs and images
     """
+
     def __init__(self, writer):
         super(Plotter).__init__()
         self.writer = writer
@@ -29,7 +30,9 @@ class Plotter(object):
             if isinstance(d, DictConfig):
                 config_summary += k + "<br/>"
                 for key, val in d.items():
-                    config_summary += "&nbsp;&nbsp;&nbsp;&nbsp;" + key + ": " + str(val) + "<br/>"
+                    config_summary += (
+                        "&nbsp;&nbsp;&nbsp;&nbsp;" + key + ": " + str(val) + "<br/>"
+                    )
             else:
                 config_summary += k + ": " + str(d) + "<br/>"
         self.writer.add_text("Config", config_summary)
