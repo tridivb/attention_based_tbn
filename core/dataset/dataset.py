@@ -546,9 +546,14 @@ class Video_Dataset(Dataset):
         #             if new_mean_loc + 6 < gt_attn_wts.shape[0]:
         #                 gt_attn_wts[new_mean_loc + 6 :] = min_val
 
+        # A spectrogram of size 256x800 is reduced to a 2D feature of size 8x25 by bn-inception network before the avg-pooling layer.
+        # We consider this size as an anchor and calculate the window size of temporal axis for other spectrograms, dynamically
         anchor = 25 / 4
         win_size = round(self.audio_length * anchor)
-        gt_attn_wts = cv2.getGaussianKernel(win_size, sigma=1)
+        # Unimodal Gaussian wights
+        # gt_attn_wts = cv2.getGaussianKernel(win_size, sigma=1)
+        # Normalized equal attention weights
+        gt_attn_wts = np.ones((win_size, 1), dtype=np.float32) / win_size
         #         mean_loc = gt_attn_wts.shape[0] // 2
         #         ind_time = float(index / self.vid_fps)
         #         diff = ind_time - start_time
