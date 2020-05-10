@@ -525,35 +525,38 @@ class Video_Dataset(Dataset):
     def _get_attn_weights(self, spec, index, start_time):
         """
         """
-        #         loudness = []
-        #         win_size = int(spec.shape[1] / 25)
-        #         for idx in range(0, spec.shape[1], win_size):
-        #             if idx + win_size <= spec.shape[1]:
-        #                 loudness.append(np.max(spec[:, idx:idx+win_size]))
-        #         loudness = np.array(loudness)
-        #         loudest_loc = loudness.argsort()[-1]
-        #         std = np.std(loudness)
-        #         sigma = min(2/std, 2.5)
-        #         gt_attn_wts = cv2.getGaussianKernel(25, sigma=sigma)
-        #         min_val = gt_attn_wts.min()
-
-        #         mean_loc = gt_attn_wts.shape[0] // 2
-        #         new_mean_loc = loudest_loc
-        #         if new_mean_loc <= gt_attn_wts.shape[0] and (new_mean_loc < mean_loc - 2 or new_mean_loc > mean_loc + 2):
-        #             gt_attn_wts = np.roll(gt_attn_wts, new_mean_loc - mean_loc)
-        #             if new_mean_loc - 6 > 0:
-        #                 gt_attn_wts[: new_mean_loc - 6] = min_val
-        #             if new_mean_loc + 6 < gt_attn_wts.shape[0]:
-        #                 gt_attn_wts[new_mean_loc + 6 :] = min_val
 
         # A spectrogram of size 256x800 is reduced to a 2D feature of size 8x25 by bn-inception network before the avg-pooling layer.
         # We consider this size as an anchor and calculate the window size of temporal axis for other spectrograms, dynamically
         anchor = 25 / 4
         win_size = round(self.audio_length * anchor)
-        # Unimodal Gaussian wights
-        # gt_attn_wts = cv2.getGaussianKernel(win_size, sigma=1)
-        # Normalized equal attention weights
-        gt_attn_wts = np.ones((win_size, 1), dtype=np.float32) / win_size
+        prior_type = self.cfg.model.attention.prior_type
+        if  prior_type == "gaussian":
+            # Unimodal Gaussian wights
+            gt_attn_wts = cv2.getGaussianKernel(win_size, sigma=1)
+        elif prior_type == "equal":
+            # Normalized equal attention weights
+            gt_attn_wts = np.ones((win_size, 1), dtype=np.float32) / win_size
+        elif prior_type == "loud":
+            loudness = []
+            for idx in range(0, spec.shape[1], win_size):
+                if idx + win_size <= spec.shape[1]:
+                    loudness.append(np.max(spec[:, idx:idx+win_size]))
+            loudness = np.array(loudness)
+            loudest_loc = loudness.argsort()[-1]
+            std = np.std(loudness)
+            gt_attn_wts = cv2.getGaussianKernel(win_size, sigma=1)
+            min_val = gt_attn_wts.min()
+
+            mean_loc = gt_attn_wts.shape[0] // 2
+            new_mean_loc = loudest_loc
+            if new_mean_loc <= gt_attn_wts.shape[0] and (new_mean_loc < mean_loc - 2 or new_mean_loc > mean_loc + 2):
+                gt_attn_wts = np.roll(gt_attn_wts, new_mean_loc - mean_loc)
+                if new_mean_loc - 4 > 0:
+                    gt_attn_wts[: new_mean_loc - 4] = min_val
+                if new_mean_loc + 4 < gt_attn_wts.shape[0]:
+                    gt_attn_wts[new_mean_loc + 4 :] = min_val
+            
         #         mean_loc = gt_attn_wts.shape[0] // 2
         #         ind_time = float(index / self.vid_fps)
         #         diff = ind_time - start_time
@@ -564,6 +567,5 @@ class Video_Dataset(Dataset):
         #                 gt_attn_wts[: new_mean_loc - 6] = 1e-6
         #             if new_mean_loc + 6 < gt_attn_wts.shape[0]:
         #                 gt_attn_wts[new_mean_loc + 6 :] = 1e-6
-        #         else:
-        #             gt_attn_wts = np.zeros(gt_attn_wts.shape, dtype=np.float32) + 1e-6
+        
         return torch.tensor(gt_attn_wts).float()

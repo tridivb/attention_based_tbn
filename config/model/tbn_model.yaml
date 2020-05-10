@@ -4,6 +4,7 @@ model:
   attention:
     enable: True
     use_fixed: True
+    prior_type: "gaussian"
     attn_heads: 4
     attn_dropout: 0.5
     use_prior: True
