@@ -32,7 +32,8 @@ def get_interest_points(model, dataset, device, topk=5):
             data, target = dict_to_device(data), dict_to_device(target)
             out = model(data)
             if "weights" in out.keys():
-                b, n, _, _ = target["weights"].shape
+                b = 1
+                n, _, _ = out["weights"].shape
                 #             loss = criterion(
                 #                 out["weights"].view(b * n, -1), target["weights"].view(b * n, -1)
                 #             )

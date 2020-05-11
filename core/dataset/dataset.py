@@ -531,32 +531,38 @@ class Video_Dataset(Dataset):
         anchor = 25 / 4
         win_size = round(self.audio_length * anchor)
         prior_type = self.cfg.model.attention.prior_type
-        if  prior_type == "gaussian":
+        if prior_type == "gaussian":
             # Unimodal Gaussian wights
             gt_attn_wts = cv2.getGaussianKernel(win_size, sigma=1)
         elif prior_type == "equal":
             # Normalized equal attention weights
             gt_attn_wts = np.ones((win_size, 1), dtype=np.float32) / win_size
         elif prior_type == "loud":
+            no_of_modes = 1
+            gt_attn_wts = []
             loudness = []
             for idx in range(0, spec.shape[1], win_size):
                 if idx + win_size <= spec.shape[1]:
-                    loudness.append(np.max(spec[:, idx:idx+win_size]))
+                    loudness.append(np.max(spec[:, idx : idx + win_size]))
             loudness = np.array(loudness)
-            loudest_loc = loudness.argsort()[-1]
-            std = np.std(loudness)
-            gt_attn_wts = cv2.getGaussianKernel(win_size, sigma=1)
-            min_val = gt_attn_wts.min()
+            for n in range(no_of_modes):
+                loudest_loc = loudness.argsort()[-(n + 1)]
+                wts = cv2.getGaussianKernel(win_size, sigma=1)
+                min_val = wts.min()
 
-            mean_loc = gt_attn_wts.shape[0] // 2
-            new_mean_loc = loudest_loc
-            if new_mean_loc <= gt_attn_wts.shape[0] and (new_mean_loc < mean_loc - 2 or new_mean_loc > mean_loc + 2):
-                gt_attn_wts = np.roll(gt_attn_wts, new_mean_loc - mean_loc)
-                if new_mean_loc - 4 > 0:
-                    gt_attn_wts[: new_mean_loc - 4] = min_val
-                if new_mean_loc + 4 < gt_attn_wts.shape[0]:
-                    gt_attn_wts[new_mean_loc + 4 :] = min_val
-            
+                mean_loc = wts.shape[0] // 2
+                new_mean_loc = loudest_loc
+                if new_mean_loc <= wts.shape[0] and (
+                    new_mean_loc < mean_loc - 2 or new_mean_loc > mean_loc + 2
+                ):
+                    wts = np.roll(wts, new_mean_loc - mean_loc)
+                    if new_mean_loc - 4 > 0:
+                        wts[: new_mean_loc - 4] = min_val
+                    if new_mean_loc + 4 < wts.shape[0]:
+                        wts[new_mean_loc + 4 :] = min_val
+                gt_attn_wts.append(wts)
+            gt_attn_wts = np.stack(gt_attn_wts).mean(0)
+
         #         mean_loc = gt_attn_wts.shape[0] // 2
         #         ind_time = float(index / self.vid_fps)
         #         diff = ind_time - start_time
@@ -567,5 +573,5 @@ class Video_Dataset(Dataset):
         #                 gt_attn_wts[: new_mean_loc - 6] = 1e-6
         #             if new_mean_loc + 6 < gt_attn_wts.shape[0]:
         #                 gt_attn_wts[new_mean_loc + 6 :] = 1e-6
-        
+
         return torch.tensor(gt_attn_wts).float()
