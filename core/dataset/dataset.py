@@ -165,6 +165,8 @@ class Video_Dataset(Dataset):
             # Select asynchronous indices if sampling type is TBN and mode is train
             if m_no > 0 and self.cfg.data.sampling == "tsn":
                 indices[m] = indices[self.modality[0]]
+                if m =="Flow":
+                    indices[m] = (indices[m] / 2).astype(np.int64)
             else:
                 indices[m] = self._get_offsets(vid_record, m)
             # Read individual flow files
@@ -233,12 +235,11 @@ class Video_Dataset(Dataset):
                 vid_record.start_frame[modality]
                 + np.arange(0, self.num_segments) * seg_len
                 + offsets
-            ).astype(int)
+            ).astype(np.int64)
         else:
             indices = vid_record.start_frame[modality] + np.zeros(
-                (self.num_segments), dtype=int
+                (self.num_segments), dtype=np.int64
             )
-
         return indices
 
     def _get_frames(self, modality, vid_id, indices):
@@ -306,6 +307,8 @@ class Video_Dataset(Dataset):
             rgb_file_name = "img_{:010d}.{}".format(frame_idx, self.vis_file_ext)
             rgb_path = os.path.join(self.root_dir, self.rgb_prefix, vid_id)
             img = cv2.imread(os.path.join(rgb_path, rgb_file_name))
+            if img is None:
+                raise Exception(f"Problem reading file {os.path.join(rgb_path, rgb_file_name)}")
             # Convert to rgb
             # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             return [img]
@@ -355,9 +358,13 @@ class Video_Dataset(Dataset):
                 "x_{:010d}.{}".format(frame_idx, self.vis_file_ext),
                 "y_{:010d}.{}".format(frame_idx, self.vis_file_ext),
             ]
-            flow_path = os.path.join(self.root_dir, self.rgb_prefix, vid_id)
+            flow_path = os.path.join(self.root_dir, self.flow_prefix, vid_id)
             img_x = cv2.imread(os.path.join(flow_path, flow_file_name[0]), 0)
+            if img_x is None:
+                raise Exception(f"Problem reading file {os.path.join(flow_path, flow_file_name[0])}")
             img_y = cv2.imread(os.path.join(flow_path, flow_file_name[1]), 0)
+            if img_y is None:
+                raise Exception(f"Problem reading file {os.path.join(flow_path, flow_file_name[1])}")
             return [img_x, img_y]
 
     def _read_audio_sample(self, vid_id):

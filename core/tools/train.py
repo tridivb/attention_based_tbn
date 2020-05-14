@@ -63,15 +63,20 @@ def train(
     dict_to_device = TransferTensorDict(device)
     metric = Metric(cfg, no_batches, device)
     loss_tracker = 0
+    accumulator_step = cfg.train.optim.accumulator_step
 
     model.train()
-    for batch_no, (data, target) in enumerate(data_loader):
-        optimizer.zero_grad()
+    for iter_no, (data, target) in enumerate(data_loader):
+
+        # Inspired from fandak https://github.com/yassersouri/fandak/blob/master/fandak/core/trainers.py#L222
+        if iter_no % accumulator_step == 0:
+            optimizer.zero_grad()
         data, target = dict_to_device(data), dict_to_device(target)
 
         out = model(data)
 
         loss, batch_size = model.get_loss(criterion, target, out, epoch)
+        loss["total"] /= accumulator_step
         metric.set_metrics(out, target, batch_size, loss)
         loss["total"].backward()
         loss_tracker += loss["total"].item()
@@ -85,13 +90,14 @@ def train(
                     f"Clipping gradient: {total_norm} with coef {cfg.train.clip_grad / total_norm}"
                 )
 
-        optimizer.step()
-        #         scheduler.step(epoch+batch_no/no_batches)
+        if iter_no % accumulator_step == (accumulator_step - 1):
+            optimizer.step()
+        #         scheduler.step(epoch+iter_no/no_batches)
 
-        if batch_no == 0 or (batch_no + 1) % batch_interval == 0:
+        if iter_no == 0 or (iter_no + 1) % batch_interval == 0:
             logger.info(
                 "Batch Progress: [{}/{}] || Train Loss: {:.5f}".format(
-                    (batch_no + 1), no_batches, loss_tracker / (batch_no + 1),
+                    (iter_no + 1), no_batches, loss_tracker / (iter_no + 1),
                 )
             )
 
