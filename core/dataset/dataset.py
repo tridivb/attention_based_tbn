@@ -229,7 +229,8 @@ class Video_Dataset(Dataset):
                 offsets = seg_len // 2
                 # Center the flow window during validation
                 if modality == "Flow":
-                    offsets = offsets - (self.frame_len[modality] // 2)
+                    # prevent offset becoming negative
+                    offsets = max(offsets - (self.frame_len[modality] // 2), 0)
 
             indices = (
                 vid_record.start_frame[modality]
