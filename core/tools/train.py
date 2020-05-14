@@ -59,7 +59,7 @@ def train(
 
     """
     no_batches = round(len(data_loader.dataset) / data_loader.batch_size)
-    batch_interval = no_batches // 4
+    log_interval = no_batches // 4
     dict_to_device = TransferTensorDict(device)
     metric = Metric(cfg, no_batches, device)
     loss_tracker = 0
@@ -69,7 +69,7 @@ def train(
     for iter_no, (data, target) in enumerate(data_loader):
 
         # Inspired from fandak https://github.com/yassersouri/fandak/blob/master/fandak/core/trainers.py#L222
-        if iter_no % accumulator_step == 0:
+        if (iter_no + 1) % accumulator_step == 0:
             optimizer.zero_grad()
         data, target = dict_to_device(data), dict_to_device(target)
 
@@ -90,11 +90,11 @@ def train(
                     f"Clipping gradient: {total_norm} with coef {cfg.train.clip_grad / total_norm}"
                 )
 
-        if iter_no % accumulator_step == (accumulator_step - 1):
+        if (iter_no + 1) % accumulator_step == (accumulator_step - 1):
             optimizer.step()
         #         scheduler.step(epoch+iter_no/no_batches)
 
-        if iter_no == 0 or (iter_no + 1) % batch_interval == 0:
+        if iter_no == 0 or (iter_no + 1) % log_interval == 0:
             logger.info(
                 "Batch Progress: [{}/{}] || Train Loss: {:.5f}".format(
                     (iter_no + 1), no_batches, loss_tracker / (iter_no + 1),

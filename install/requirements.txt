@@ -9,3 +9,4 @@ torch
 torchvision
 tensorboardX
 moviepy
+jupyterlab
