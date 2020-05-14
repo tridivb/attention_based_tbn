@@ -294,20 +294,20 @@ def run_trainer(cfg, logger, modality, writer):
             else:
                 lr_scheduler.step()
 
-        if cfg.val.enable and val_acc["all_class"][0] > best_acc:
-            save_checkpoint(
-                model,
-                optimizer,
-                epoch,
-                train_loss_hist,
-                val_loss_hist,
-                val_acc_hist,
-                confusion_matrix,
-                num_gpus,
-                scheduler=lr_scheduler,
-                filename=os.path.splitext(checkpoint)[0] + "_best.pth",
-            )
-            best_acc = val_acc["all_class"][0]
+        # if cfg.val.enable and val_acc["all_class"][0] > best_acc:
+        #     save_checkpoint(
+        #         model,
+        #         optimizer,
+        #         epoch,
+        #         train_loss_hist,
+        #         val_loss_hist,
+        #         val_acc_hist,
+        #         confusion_matrix,
+        #         num_gpus,
+        #         scheduler=lr_scheduler,
+        #         filename=os.path.splitext(checkpoint)[0] + "_best.pth",
+        #     )
+        #     best_acc = val_acc["all_class"][0]
 
         save_checkpoint(
             model,
