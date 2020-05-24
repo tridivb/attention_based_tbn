@@ -112,7 +112,7 @@ def save_checkpoint(
     torch.save(data, filename)
 
 
-def save_scores(scores, file_name):
+def save_scores(scores, file_name, action_names):
     """
     Helper function to save output prediction scores for epic kitchens
 
@@ -141,7 +141,18 @@ def save_scores(scores, file_name):
         a_id = str(scores["action_id"][idx].item())
         results[a_id] = {}
         for key in scores.keys():
-            if key != "action_id":
+            if key == "action_id":
+                continue
+            elif key == "action":
+                # only save top 100 actions scores
+                top_100_scores, top_100_indices = scores[key][idx].topk(
+                    100, dim=0, largest=True, sorted=True
+                )
+                results[a_id][key] = {
+                    action_names[id.item()]: score.item()
+                    for id, score in zip(top_100_indices, top_100_scores)
+                }
+            else:
                 results[a_id][key] = {
                     str(id): s.item() for id, s in enumerate(scores[key][idx])
                 }

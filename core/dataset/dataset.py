@@ -112,10 +112,8 @@ class Video_Dataset(Dataset):
                     noun_id = self.epic_classes.noun_df.query(
                         "nouns == @noun"
                     ).noun_id.values[0]
-                    action_id_list.append(f"({verb_id}, {noun_id})")
-                self.annotations = self.annotations.query(
-                    "action_id in @action_id_list"
-                )
+                    action_id_list.append(f"{verb_id},{noun_id}")
+                self.annotations = self.annotations.query("action in @action_id_list")
 
     def __len__(self):
         """
