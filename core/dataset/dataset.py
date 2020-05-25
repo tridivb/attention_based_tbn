@@ -165,8 +165,11 @@ class Video_Dataset(Dataset):
                 indices[m] = indices[self.modality[0]]
                 if m == "Flow":
                     indices[m] = (indices[m] / 2).astype(np.int64)
-            else:
+            elif self.cfg.data.sampling == "tbn":
                 indices[m] = self._get_offsets(vid_record, m)
+            else:
+                raise Exception("Unknow sampling type")
+
             # Read individual flow files
             if m == "Flow" and not self.read_flow_pickle:
                 frame_indices = (
@@ -574,16 +577,5 @@ class Video_Dataset(Dataset):
                         wts[new_mean_loc + 4 :] = min_val
                 gt_attn_wts.append(wts)
             gt_attn_wts = np.stack(gt_attn_wts).mean(0)
-
-        #         mean_loc = gt_attn_wts.shape[0] // 2
-        #         ind_time = float(index / self.vid_fps)
-        #         diff = ind_time - start_time
-        #         new_mean_loc = round(diff * win_size / self.audio_length)
-        #         if new_mean_loc <= gt_attn_wts.shape[0]:
-        #             gt_attn_wts = np.roll(gt_attn_wts, new_mean_loc - mean_loc)
-        #             if new_mean_loc - 6 > 0:
-        #                 gt_attn_wts[: new_mean_loc - 6] = 1e-6
-        #             if new_mean_loc + 6 < gt_attn_wts.shape[0]:
-        #                 gt_attn_wts[new_mean_loc + 6 :] = 1e-6
 
         return torch.tensor(gt_attn_wts).float()
