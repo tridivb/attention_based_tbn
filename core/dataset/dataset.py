@@ -94,9 +94,6 @@ class Video_Dataset(Dataset):
             self.annotations = self.annotations.query("video_id in @vid_list")
         if action_list and len(action_list) > 0:
             if self.cfg.data.dataset == "epic":
-                self.annotations["action_id"] = self.annotations[
-                    ["verb_class", "noun_class"]
-                ].apply(lambda x: f"({x.verb_class}, {x.noun_class})", axis=1)
                 self.epic_classes = EpicClasses(
                     os.path.join(cfg.data_dir, "annotations")
                 )
@@ -165,10 +162,8 @@ class Video_Dataset(Dataset):
                 indices[m] = indices[self.modality[0]]
                 if m == "Flow":
                     indices[m] = (indices[m] / 2).astype(np.int64)
-            elif self.cfg.data.sampling == "tbn":
-                indices[m] = self._get_offsets(vid_record, m)
             else:
-                raise Exception("Unknow sampling type")
+                indices[m] = self._get_offsets(vid_record, m)
 
             # Read individual flow files
             if m == "Flow" and not self.read_flow_pickle:
