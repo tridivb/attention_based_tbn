@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import os
+import qgrid
 import datetime
 import numpy as np
 import torch
@@ -19,37 +20,87 @@ from core.utils import get_modality
 from core.dataset.transform import *
 
 
-def get_interest_points(model, dataset, device, topk=5):
-    losses = []
-    #     criterion = torch.nn.MSELoss()
+def get_info(model, dataset, epic_classes, device):
+    """
+    Helper function to get model predictions, ground truth and entropy scores, if applicable
+    Args
+    ----------
+    model: torch.nn.model
+        Model to train
+    dataset: torch.nn.utils.dataset
+        Dataset class
+    epic_classes: EpicClasses
+        Object for epic kitchens class definitions
+    device: torch.device, default = torch.device("cuda")
+        Torch device to use
+
+    Returns
+    ----------
+    qgrid_widget: Qgrid widget instance
+        Qgrid widget wrapping a pandas dataframe
+
+    """
+
     dict_to_device = TransferTensorDict(device)
     data_loader = torch.utils.data.DataLoader(
         dataset, batch_size=1, shuffle=False, num_workers=8,
     )
+    data_dict = {
+        "vid_id": [],
+        "gt_verb": [],
+        "gt_noun": [],
+        "pred_verb": [],
+        "pred_noun": [],
+        "entropy": [],
+    }
     model.eval()
     with torch.no_grad():
         for data, target, _ in tqdm(data_loader):
             data, target = dict_to_device(data), dict_to_device(target)
             out = model(data)
+            data_dict["vid_id"].append(data["vid_id"][0])
+            gt_verb = epic_classes.verbs[target["class"]["verb"].item()]
+            gt_noun = epic_classes.nouns[target["class"]["noun"].item()]
+            data_dict["gt_verb"].append(gt_verb)
+            data_dict["gt_noun"].append(gt_noun)
+            _, pred_verb = out["verb"].max(dim=1)
+            _, pred_noun = out["noun"].max(dim=1)
+            pred_verb = epic_classes.verbs[pred_verb.item()]
+            pred_noun = epic_classes.nouns[pred_noun.item()]
+            data_dict["pred_verb"].append(pred_verb)
+            data_dict["pred_noun"].append(pred_noun)
             if "weights" in out.keys():
                 b = 1
                 n, _, _ = out["weights"].shape
-                #             loss = criterion(
-                #                 out["weights"].view(b * n, -1), target["weights"].view(b * n, -1)
-                #             )
                 weights = out["weights"].view(b * n, -1)
                 entropy = (-1 * (weights * torch.log(weights + 1e-6)).sum(1)).mean()
-                losses.append(entropy.item())
+                data_dict["entropy"].append(entropy.item())
             else:
-                raise Exception(
-                    "No attention weights found in model output. Please check if model initilization was correct."
-                )
+                data_dict["entropy"].append("N/A")
 
-    interest_pts = np.array(losses).argsort()[::-1] + 1
-    return interest_pts[:topk]
+    df = pd.DataFrame.from_dict(data_dict)
+    df.index += 1
+    df.index.name = "Index"
+    col_opts = {"editable": False}
+    qgrid_widget = qgrid.show_grid(df, show_toolbar=False, column_options=col_opts)
+    return qgrid_widget
 
 
 def save_action_segment(data_dir, vid_id, start_time, stop_time):
+    """
+    Helper function to save trimmed video segment
+    Args
+    ----------
+    data_dir: string
+        Path to videos directory
+    vid_id: string
+        video id
+    start_time: string
+        start time of video segment
+    stop_time: string
+        stop time of video segment
+    """
+
     vid_file = os.path.join(data_dir, f"vid_symlinks/{vid_id}.MP4")
     video = mpe.VideoFileClip(vid_file).subclip(start_time, stop_time)
     video.write_videofile("results/temp.MP4", logger=None)
@@ -57,6 +108,24 @@ def save_action_segment(data_dir, vid_id, start_time, stop_time):
 
 
 def visualize(cfg, model, dataset, index, epic_classes, device):
+    """
+    Helper function to visualize frames, audio spectrograms, predicted attention weights and class predictions
+    Args
+    ----------
+    cfg: dict
+        Dictionary of config parameters
+    model: torch.nn.model
+        Model to train
+    dataset: torch.nn.utils.dataset
+        Dataset class
+    index: int
+        index to retrieve data from
+    epic_classes: EpicClasses
+        Object for epic kitchens class definitions
+    device: torch.device, default = torch.device("cuda")
+        Torch device to use
+    """
+
     dict_to_device = TransferTensorDict(device)
     data, target, _ = default_collate([dataset[index - 1]])
     rgb_indices = data["indices"]["RGB"].numpy().squeeze()
@@ -150,6 +219,21 @@ def visualize(cfg, model, dataset, index, epic_classes, device):
 
 
 def create_dataset(cfg, action_list=None):
+    """
+    Helper function to create dataset
+    Args
+    ----------
+    cfg: dict
+        Dictionary of config parameters
+    action_list: list
+        List of action classes to process
+
+    Returns
+    ----------
+    dataset: Dataset
+        Dataset object over selected action classes
+
+    """
     modality = get_modality(cfg)
 
     transforms = {}
@@ -214,11 +298,19 @@ def initialize(config_file):
 
     Args
     ----------
+    config_file: string
+        Path to config file
+
+    Returns
+    ----------
     cfg: dict
         Dictionary of config parameters
-    modality: list
-        List of input modalities
-
+    model: torch.nn.model
+        Model to train
+    epic_classes: EpicClasses
+        Object for epic kitchens class definitions
+    device: torch.device, default = torch.device("cuda")
+        Torch device to use
     """
 
     cfg = OmegaConf.load(config_file)

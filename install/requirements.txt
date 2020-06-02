@@ -10,3 +10,6 @@ torchvision
 tensorboardX
 moviepy
 jupyterlab
+qgrid
+ipywidgets
+nodejs

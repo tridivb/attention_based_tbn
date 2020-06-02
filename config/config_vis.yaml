@@ -9,12 +9,12 @@ data:
     spec_type: stft
   dataset: epic
   flow:
-    dir_prefix: flow_pickle
+    dir_prefix: links
     enable: false
     file_ext: jpg
     mean:
     - 0.502
-    read_flow_pickle: true
+    read_flow_pickle: false
     std:
     - 1.0
     win_length: 5
@@ -31,6 +31,7 @@ data:
     - 1.0
     - 1.0
     - 1.0
+  sampling: tbn
   test_crop_size: 224
   test_scale_size: 256
   train_crop_size: 224
@@ -46,11 +47,14 @@ model:
     attn_heads: 4
     contrast_decay: 0.25
     contrast_thresh: 0.1
+    decay_step: 10
     enable: true
     entropy_decay: 0.25
     loss_reduction: batchmean
+    prior_type: gaussian
     use_contrast: false
     use_entropy: true
+    use_fixed: false
     use_prior: false
     wt_decay: 0.25
     wt_loss: kl
@@ -66,19 +70,19 @@ model:
     depth: 101
   vgg:
     type: '16'
-num_workers: 16
+num_workers: 8
 out_dir: /media/data/tridiv/epic
 test:
   annotation_file:
-  - annotations/EPIC_train_action_labels.csv
+  - annotations/epic_train_val.csv
   batch_size: 1
   enable: true
   num_segments: 3
-  pre_trained: /media/data/tridiv/epic/tbn_weights/audio_2.1_entropy_0.25_step_10/seen/epic_tbn_bninception_RGB_Audio.pth
+  pre_trained: /media/data/tridiv/epic/tbn_weights/audio_2.1_entropy_0.25_step_10/unseen/epic_tbn_bninception_RGB_Audio.pth
   results_file:
   - ''
   save_results: false
   topk:
   - 1
   - 5
-  vid_list: data/val_split_seen.txt
+  vid_list: data/val_split_unseen.txt
