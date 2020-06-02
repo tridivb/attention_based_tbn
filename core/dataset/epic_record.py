@@ -47,10 +47,12 @@ class EpicVideoRecord(VideoRecord):
 
     @property
     def label(self):
-        if "verb_class" in self._series.keys().tolist():
+        keys = self._series.keys().tolist()
+        if "verb_class" in keys and "noun_class" in keys and "action_class" in keys:
             label = {
                 "verb": self._series["verb_class"],
                 "noun": self._series["noun_class"],
+                "action": self._series["action_class"],
             }
         else:  # Fake label to deal with the test sets (S1/S2) that dont have any labels
             label = -1

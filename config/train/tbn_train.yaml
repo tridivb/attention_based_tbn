@@ -1,7 +1,7 @@
 # train parameters
 train:
   enable: True
-  annotation_file: "annotations/EPIC_train_action_labels.csv"
+  annotation_file: "annotations/epic_train_val.csv"
   vid_list: "data/train_split_seen.txt"
   batch_size: 12
   epochs: 30
@@ -10,6 +10,7 @@ train:
     lr: 1e-2
     momentum: 0.9
     weight_decay: 0
+    accumulator_step: 1
   scheduler:
     lr_steps: [20]
     lr_decay: 1e-1

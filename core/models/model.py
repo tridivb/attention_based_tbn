@@ -49,7 +49,7 @@ class TBNModel(nn.Module):
 
         # Create fusion layer (if applicable) and final linear classificatin layer
         if len(self.modality) > 1:
-            if self.use_attention:
+            if self.use_attention and not self.cfg.model.attention.use_fixed:
                 anchor = 25 / 4
                 attn_win_size = round(self.cfg.data.audio.audio_length * anchor)
                 self.pe = nn.Sequential(

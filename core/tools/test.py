@@ -216,7 +216,10 @@ def run_tester(cfg, logger, modality):
             else:
                 out_file = os.path.join("./inferences", cfg.test.results_file[idx])
             try:
-                save_scores(output_dict, out_file)
+                action_names = pd.read_pickle(
+                    os.path.join(cfg.data_dir, "annotations", "action_id_to_name.pkl")
+                )
+                save_scores(output_dict, out_file, action_names)
                 logger.info("Saved results to {}".format(out_file))
             except Exception as e:
                 logger.exception(e)

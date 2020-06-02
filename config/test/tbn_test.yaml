@@ -1,11 +1,11 @@
 # test parameters
 test:
   enable: False
-  annotation_file: ["annotations/EPIC_train_action_labels.csv"]
-  vid_list: "data/val_split_seen.txt"
+  annotation_file: ["annotations/EPIC_test_s1_timestamps.csv", "annotations/EPIC_test_s2_timestamps.csv"]
+  vid_list: ""
   batch_size: 2
   topk: [1, 5]
   num_segments: 25
-  save_results: False
-  results_file: [""]
-  pre_trained: "/media/data/tridiv/epic/tbn_weights/attention/seen/epic_tbn_bninception_RGB_Audio_best.pth"
+  save_results: True
+  results_file: ["seen.json", "unseen.json"]
+  pre_trained: ""

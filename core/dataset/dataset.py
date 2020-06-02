@@ -94,9 +94,6 @@ class Video_Dataset(Dataset):
             self.annotations = self.annotations.query("video_id in @vid_list")
         if action_list and len(action_list) > 0:
             if self.cfg.data.dataset == "epic":
-                self.annotations["action_id"] = self.annotations[
-                    ["verb_class", "noun_class"]
-                ].apply(lambda x: f"({x.verb_class}, {x.noun_class})", axis=1)
                 self.epic_classes = EpicClasses(
                     os.path.join(cfg.data_dir, "annotations")
                 )
@@ -112,10 +109,8 @@ class Video_Dataset(Dataset):
                     noun_id = self.epic_classes.noun_df.query(
                         "nouns == @noun"
                     ).noun_id.values[0]
-                    action_id_list.append(f"({verb_id}, {noun_id})")
-                self.annotations = self.annotations.query(
-                    "action_id in @action_id_list"
-                )
+                    action_id_list.append(f"{verb_id},{noun_id}")
+                self.annotations = self.annotations.query("action in @action_id_list")
 
     def __len__(self):
         """
@@ -165,8 +160,11 @@ class Video_Dataset(Dataset):
             # Select asynchronous indices if sampling type is TBN and mode is train
             if m_no > 0 and self.cfg.data.sampling == "tsn":
                 indices[m] = indices[self.modality[0]]
+                if m == "Flow":
+                    indices[m] = (indices[m] / 2).astype(np.int64)
             else:
                 indices[m] = self._get_offsets(vid_record, m)
+
             # Read individual flow files
             if m == "Flow" and not self.read_flow_pickle:
                 frame_indices = (
@@ -227,18 +225,18 @@ class Video_Dataset(Dataset):
                 offsets = seg_len // 2
                 # Center the flow window during validation
                 if modality == "Flow":
-                    offsets = offsets - (self.frame_len[modality] // 2)
+                    # prevent offset becoming negative
+                    offsets = max(offsets - (self.frame_len[modality] // 2), 0)
 
             indices = (
                 vid_record.start_frame[modality]
                 + np.arange(0, self.num_segments) * seg_len
                 + offsets
-            ).astype(int)
+            ).astype(np.int64)
         else:
             indices = vid_record.start_frame[modality] + np.zeros(
-                (self.num_segments), dtype=int
+                (self.num_segments), dtype=np.int64
             )
-
         return indices
 
     def _get_frames(self, modality, vid_id, indices):
@@ -306,6 +304,10 @@ class Video_Dataset(Dataset):
             rgb_file_name = "img_{:010d}.{}".format(frame_idx, self.vis_file_ext)
             rgb_path = os.path.join(self.root_dir, self.rgb_prefix, vid_id)
             img = cv2.imread(os.path.join(rgb_path, rgb_file_name))
+            if img is None:
+                raise Exception(
+                    f"Problem reading file {os.path.join(rgb_path, rgb_file_name)}"
+                )
             # Convert to rgb
             # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             return [img]
@@ -355,9 +357,17 @@ class Video_Dataset(Dataset):
                 "x_{:010d}.{}".format(frame_idx, self.vis_file_ext),
                 "y_{:010d}.{}".format(frame_idx, self.vis_file_ext),
             ]
-            flow_path = os.path.join(self.root_dir, self.rgb_prefix, vid_id)
+            flow_path = os.path.join(self.root_dir, self.flow_prefix, vid_id)
             img_x = cv2.imread(os.path.join(flow_path, flow_file_name[0]), 0)
+            if img_x is None:
+                raise Exception(
+                    f"Problem reading file {os.path.join(flow_path, flow_file_name[0])}"
+                )
             img_y = cv2.imread(os.path.join(flow_path, flow_file_name[1]), 0)
+            if img_y is None:
+                raise Exception(
+                    f"Problem reading file {os.path.join(flow_path, flow_file_name[1])}"
+                )
             return [img_x, img_y]
 
     def _read_audio_sample(self, vid_id):
@@ -525,40 +535,42 @@ class Video_Dataset(Dataset):
     def _get_attn_weights(self, spec, index, start_time):
         """
         """
-        #         loudness = []
-        #         win_size = int(spec.shape[1] / 25)
-        #         for idx in range(0, spec.shape[1], win_size):
-        #             if idx + win_size <= spec.shape[1]:
-        #                 loudness.append(np.max(spec[:, idx:idx+win_size]))
-        #         loudness = np.array(loudness)
-        #         loudest_loc = loudness.argsort()[-1]
-        #         std = np.std(loudness)
-        #         sigma = min(2/std, 2.5)
-        #         gt_attn_wts = cv2.getGaussianKernel(25, sigma=sigma)
-        #         min_val = gt_attn_wts.min()
 
-        #         mean_loc = gt_attn_wts.shape[0] // 2
-        #         new_mean_loc = loudest_loc
-        #         if new_mean_loc <= gt_attn_wts.shape[0] and (new_mean_loc < mean_loc - 2 or new_mean_loc > mean_loc + 2):
-        #             gt_attn_wts = np.roll(gt_attn_wts, new_mean_loc - mean_loc)
-        #             if new_mean_loc - 6 > 0:
-        #                 gt_attn_wts[: new_mean_loc - 6] = min_val
-        #             if new_mean_loc + 6 < gt_attn_wts.shape[0]:
-        #                 gt_attn_wts[new_mean_loc + 6 :] = min_val
-
+        # A spectrogram of size 256x800 is reduced to a 2D feature of size 8x25 by bn-inception network before the avg-pooling layer.
+        # We consider this size as an anchor and calculate the window size of temporal axis for other spectrograms, dynamically
         anchor = 25 / 4
         win_size = round(self.audio_length * anchor)
-        gt_attn_wts = cv2.getGaussianKernel(win_size, sigma=1)
-        #         mean_loc = gt_attn_wts.shape[0] // 2
-        #         ind_time = float(index / self.vid_fps)
-        #         diff = ind_time - start_time
-        #         new_mean_loc = round(diff * win_size / self.audio_length)
-        #         if new_mean_loc <= gt_attn_wts.shape[0]:
-        #             gt_attn_wts = np.roll(gt_attn_wts, new_mean_loc - mean_loc)
-        #             if new_mean_loc - 6 > 0:
-        #                 gt_attn_wts[: new_mean_loc - 6] = 1e-6
-        #             if new_mean_loc + 6 < gt_attn_wts.shape[0]:
-        #                 gt_attn_wts[new_mean_loc + 6 :] = 1e-6
-        #         else:
-        #             gt_attn_wts = np.zeros(gt_attn_wts.shape, dtype=np.float32) + 1e-6
+        prior_type = self.cfg.model.attention.prior_type
+        if prior_type == "gaussian":
+            # Unimodal Gaussian wights
+            gt_attn_wts = cv2.getGaussianKernel(win_size, sigma=1)
+        elif prior_type == "equal":
+            # Normalized equal attention weights
+            gt_attn_wts = np.ones((win_size, 1), dtype=np.float32) / win_size
+        elif prior_type == "loud":
+            no_of_modes = 1
+            gt_attn_wts = []
+            loudness = []
+            for idx in range(0, spec.shape[1], win_size):
+                if idx + win_size <= spec.shape[1]:
+                    loudness.append(np.max(spec[:, idx : idx + win_size]))
+            loudness = np.array(loudness)
+            for n in range(no_of_modes):
+                loudest_loc = loudness.argsort()[-(n + 1)]
+                wts = cv2.getGaussianKernel(win_size, sigma=1)
+                min_val = wts.min()
+
+                mean_loc = wts.shape[0] // 2
+                new_mean_loc = loudest_loc
+                if new_mean_loc <= wts.shape[0] and (
+                    new_mean_loc < mean_loc - 2 or new_mean_loc > mean_loc + 2
+                ):
+                    wts = np.roll(wts, new_mean_loc - mean_loc)
+                    if new_mean_loc - 4 > 0:
+                        wts[: new_mean_loc - 4] = min_val
+                    if new_mean_loc + 4 < wts.shape[0]:
+                        wts[new_mean_loc + 4 :] = min_val
+                gt_attn_wts.append(wts)
+            gt_attn_wts = np.stack(gt_attn_wts).mean(0)
+
         return torch.tensor(gt_attn_wts).float()
