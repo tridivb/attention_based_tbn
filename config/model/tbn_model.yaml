@@ -3,6 +3,7 @@ model:
   arch: "bninception"
   attention:
     enable: True
+    type: "soft"
     use_fixed: False
     prior_type: "gaussian"
     attn_heads: 4

@@ -9,7 +9,7 @@ from torch.distributions import Categorical
 from .vgg import VGG
 from .resnet import Resnet
 from .bn_inception import bninception
-from .attention import PositionalEncoding, AttentionLayer
+from .attention import PositionalEncoding, SoftAttention, UniModalAttention
 
 
 class TBNModel(nn.Module):
@@ -32,6 +32,7 @@ class TBNModel(nn.Module):
         self.base_model_name = cfg.model.arch
         self.num_classes = cfg.model.num_classes
         self.use_attention = cfg.model.attention.enable
+        self.attention_type = cfg.model.attention.type
 
         if cfg.model.agg_type.lower() == "avg":
             self.agg_type = "avg"
@@ -52,16 +53,21 @@ class TBNModel(nn.Module):
             if self.use_attention and not self.cfg.model.attention.use_fixed:
                 anchor = 25 / 4
                 attn_win_size = round(self.cfg.data.audio.audio_length * anchor)
-                self.pe = nn.Sequential(
-                    PositionalEncoding(10, max_len=attn_win_size, device=device),
-                    nn.Conv1d(1034, 1024, kernel_size=1),
-                    nn.GroupNorm(64, 1024),
-                )
-                self.attention_layer = AttentionLayer(
-                    1024,
-                    cfg.model.attention.attn_heads,
-                    cfg.model.attention.attn_dropout,
-                )
+                if self.attention_type == "soft":
+                    self.pe = nn.Sequential(
+                        PositionalEncoding(10, max_len=attn_win_size, device=device),
+                        nn.Conv1d(1034, 1024, kernel_size=1),
+                        nn.GroupNorm(64, 1024),
+                    )
+                    self.attention_layer = SoftAttention(
+                        1024,
+                        cfg.model.attention.attn_heads,
+                        cfg.model.attention.attn_dropout,
+                    )
+                elif self.attention_type == "unimodal":
+                    self.attention_layer = UniModalAttention(
+                        1024, attn_win_size, temperature=1, one_hot=True
+                    )
             self.add_module(
                 "fusion", Fusion(in_features, 512, dropout=cfg.model.fusion_dropout)
             )
@@ -190,13 +196,20 @@ class TBNModel(nn.Module):
                         b * n, -1
                     ).unsqueeze(1)
                     feature = feature.sum(2)
-                else:
+                elif self.attention_type == "soft":
                     feature = self.pe(feature)
                     feature = feature.transpose(1, 2).transpose(0, 1)
+                    # query is rgb feature, key and value are audio feature
+                    # idea is to attend on audio using the rgb feature
                     feature, att_wts = self.attention_layer(
                         features[0].unsqueeze(0), feature, feature
                     )
                     feature = feature.squeeze(0)
+                elif self.attention_type == "unimodal":
+                    # first input is rgb features, second is audio feature
+                    feature, att_wts = self.attention_layer(
+                        features[0], feature.squeeze(2)
+                    )
             features.extend([feature])
         features = torch.cat(features, dim=1)
 

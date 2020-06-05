@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 
 class PositionalEncoding(nn.Module):
@@ -42,9 +43,9 @@ class PositionalEncoding(nn.Module):
             return x
 
 
-class AttentionLayer(torch.nn.Module):
+class SoftAttention(torch.nn.Module):
     def __init__(self, embed_dim, num_heads, dropout=0.0):
-        super(AttentionLayer, self).__init__()
+        super(SoftAttention, self).__init__()
         self.attention_layer = torch.nn.MultiheadAttention(
             embed_dim, num_heads, dropout=dropout, bias=True
         )
@@ -52,3 +53,28 @@ class AttentionLayer(torch.nn.Module):
     def forward(self, query, key, value):
         attention_out, attention_wts = self.attention_layer(query, key, value)
         return attention_out, attention_wts
+
+
+class UniModalAttention(torch.nn.Module):
+    def __init__(self, in_size, out_size, hidden_size=128, temperature=1, one_hot=True):
+        super(UniModalAttention, self).__init__()
+        # in size is number of channels in input feature
+        # out_size is the dimension of the distribution or size of audio feature along temporal axis
+        self.seq = nn.Sequential(
+            nn.Linear(in_size, hidden_size), nn.ReLU(), nn.Linear(hidden_size, out_size)
+        )
+        self.temperature = temperature
+        self.one_hot = one_hot
+
+    def forward(self, input1, input2):
+        logits = self.seq(input1)
+        if self.training:
+            mul_matrix = F.gumbel_softmax(
+                logits, tau=self.temperature, hard=self.one_hot
+            )
+        else:
+            mul_matrix = F.softmax(logits, dim=1)
+            # calculate weighted sum over the feature matrix
+        out = input2 * mul_matrix.unsqueeze(dim=1)
+        out = out.sum(dim=2)
+        return out, mul_matrix
