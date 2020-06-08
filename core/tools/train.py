@@ -18,7 +18,7 @@ from core.utils import (
     Plotter,
     Metric,
 )
-from core.dataset.transform import *
+from core.dataset.transform import TransferTensorDict
 
 
 def train(

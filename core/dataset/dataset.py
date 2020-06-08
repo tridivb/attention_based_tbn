@@ -13,7 +13,6 @@ from collections import OrderedDict
 
 from .epic_record import EpicVideoRecord
 from .epic_class import EpicClasses
-from .transform import *
 
 
 class Video_Dataset(Dataset):

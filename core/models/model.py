@@ -174,7 +174,7 @@ class TBNModel(nn.Module):
             for key in scores.keys():
                 # Reshape the tensor to B x N x feature size,
                 # before calculating the mean over the trimmed action segment
-                # where B = batch size and N = number of segment
+                # where B = batch size and N = number of segments
                 scores[key] = scores[key].view(new_shape).mean(dim=1)
         else:
             scores = scores[key].view(new_shape).mean(dim=1)
@@ -190,26 +190,33 @@ class TBNModel(nn.Module):
             b, n, c, h, w = input[m].shape
             base_model = getattr(self, "Base_{}".format(m))
             feature = base_model(input[m].view(b * n, c, h, w))
-            if m == "Audio" and self.use_attention:
-                if self.cfg.model.attention.use_fixed:
-                    feature = feature.squeeze(2) * input["weights"].view(
-                        b * n, -1
-                    ).unsqueeze(1)
-                    feature = feature.sum(2)
-                elif self.attention_type == "soft":
-                    feature = self.pe(feature)
-                    feature = feature.transpose(1, 2).transpose(0, 1)
-                    # query is rgb feature, key and value are audio feature
-                    # idea is to attend on audio using the rgb feature
-                    feature, att_wts = self.attention_layer(
-                        features[0].unsqueeze(0), feature, feature
-                    )
-                    feature = feature.squeeze(0)
-                elif self.attention_type == "unimodal":
-                    # first input is rgb features, second is audio feature
-                    feature, att_wts = self.attention_layer(
-                        features[0], feature.squeeze(2)
-                    )
+            if m == "Audio":
+                if self.use_attention:
+                    if self.cfg.model.attention.use_fixed:
+                        feature = feature.squeeze(2) * input["weights"].view(
+                            b * n, -1
+                        ).unsqueeze(1)
+                        feature = feature.sum(2)
+                    elif self.attention_type == "soft":
+                        feature = self.pe(feature)
+                        feature = feature.transpose(1, 2).transpose(0, 1)
+                        # query is rgb feature, key and value are audio feature
+                        # idea is to attend on audio using the rgb feature
+                        feature, att_wts = self.attention_layer(
+                            features[0].unsqueeze(0), feature, feature
+                        )
+                        feature = feature.squeeze(0)
+                    elif self.attention_type == "unimodal":
+                        # first input is rgb features, second is audio feature
+                        feature, att_wts = self.attention_layer(
+                            features[0], feature.squeeze(2)
+                        )
+                if features[0].shape[0] > feature.shape[0]:
+                    new_size = features[0].shape[0] // feature.shape[0]
+                    feature = feature.repeat(new_size, 1)
+                    # since for audio there is no 10 crop, adjust the number of segments
+                    # as num_segments * number of crops during validation/testing
+                    n *= new_size
             features.extend([feature])
         features = torch.cat(features, dim=1)
 

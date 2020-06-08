@@ -17,7 +17,14 @@ from tqdm import tqdm
 from core.models import build_model
 from core.dataset import Video_Dataset, EpicClasses
 from core.utils import get_modality
-from core.dataset.transform import *
+from core.dataset.transform import (
+    Rescale,
+    CenterCrop,
+    Stack,
+    ToTensor,
+    Normalize,
+    TransferTensorDict,
+)
 
 
 def get_info(model, dataset, epic_classes, device):

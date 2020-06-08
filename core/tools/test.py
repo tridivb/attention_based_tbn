@@ -13,7 +13,15 @@ from torch.utils.data.dataloader import DataLoader
 from core.models import build_model
 from core.dataset import Video_Dataset
 from core.utils import get_time_diff, save_scores, Metric
-from core.dataset.transform import *
+from core.dataset.transform import (
+    Rescale,
+    FixedCrop,
+    CenterCrop,
+    Stack,
+    ToTensor,
+    Normalize,
+    TransferTensorDict,
+)
 
 
 def test(
@@ -131,6 +139,11 @@ def run_tester(cfg, logger, modality):
             test_transforms[m] = torchvision.transforms.Compose(
                 [
                     Rescale(cfg.data.test_scale_size),
+                    # FixedCrop(
+                    #     cfg.data.test_crop_size,
+                    #     locations=[0, 1, 2, 3, 4],
+                    #     horizontal_flip=True,
+                    # ),
                     CenterCrop(cfg.data.test_crop_size),
                     Stack(m),
                     ToTensor(),
@@ -141,6 +154,11 @@ def run_tester(cfg, logger, modality):
             test_transforms[m] = torchvision.transforms.Compose(
                 [
                     Rescale(cfg.data.test_scale_size),
+                    # FixedCrop(
+                    #     cfg.data.test_crop_size,
+                    #     locations=[0, 1, 2, 3, 4],
+                    #     horizontal_flip=True,
+                    # ),
                     CenterCrop(cfg.data.test_crop_size),
                     Stack(m),
                     ToTensor(),

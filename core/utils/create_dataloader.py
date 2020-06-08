@@ -4,7 +4,16 @@ from torch.utils.data import DataLoader
 from collections import OrderedDict
 
 from core.dataset import Video_Dataset
-from core.dataset.transform import *
+from core.dataset.transform import (
+    Rescale,
+    MultiScaleCrop,
+    FixedCrop,
+    CenterCrop,
+    RandomHorizontalFlip,
+    Stack,
+    ToTensor,
+    Normalize,
+)
 
 
 def get_transforms(cfg, modality, mode="test"):
@@ -27,6 +36,11 @@ def get_transforms(cfg, modality, mode="test"):
                 transforms[m] = torchvision.transforms.Compose(
                     [
                         Rescale(cfg.data.test_scale_size),
+                        # FixedCrop(
+                        #     cfg.data.test_crop_size,
+                        #     locations=[0, 1, 2, 3, 4],
+                        #     horizontal_flip=True,
+                        # ),
                         CenterCrop(cfg.data.test_crop_size),
                         Stack(m),
                         ToTensor(),
@@ -48,6 +62,11 @@ def get_transforms(cfg, modality, mode="test"):
                 transforms[m] = torchvision.transforms.Compose(
                     [
                         Rescale(cfg.data.test_scale_size),
+                        # FixedCrop(
+                        #     cfg.data.test_crop_size,
+                        #     locations=[0, 1, 2, 3, 4],
+                        #     horizontal_flip=True,
+                        # ),
                         CenterCrop(cfg.data.test_crop_size),
                         Stack(m),
                         ToTensor(),
