@@ -66,7 +66,12 @@ class TBNModel(nn.Module):
                     )
                 elif self.attention_type == "unimodal":
                     self.attention_layer = UniModalAttention(
-                        1024, attn_win_size, temperature=1, one_hot=True
+                        1024,
+                        attn_win_size,
+                        use_gumbel=cfg.model.attention.use_gumbel,
+                        hidden_size=256,
+                        temperature=1,
+                        one_hot=True,
                     )
             self.add_module(
                 "fusion", Fusion(in_features, 512, dropout=cfg.model.fusion_dropout)

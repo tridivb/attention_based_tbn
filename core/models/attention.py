@@ -56,19 +56,28 @@ class SoftAttention(torch.nn.Module):
 
 
 class UniModalAttention(torch.nn.Module):
-    def __init__(self, in_size, out_size, hidden_size=128, temperature=1, one_hot=True):
+    def __init__(
+        self,
+        in_size,
+        out_size,
+        hidden_size=256,
+        use_gumbel=True,
+        temperature=1,
+        one_hot=True,
+    ):
         super(UniModalAttention, self).__init__()
         # in size is number of channels in input feature
         # out_size is the dimension of the distribution or size of audio feature along temporal axis
         self.seq = nn.Sequential(
             nn.Linear(in_size, hidden_size), nn.ReLU(), nn.Linear(hidden_size, out_size)
         )
+        self.use_gumbel = use_gumbel
         self.temperature = temperature
         self.one_hot = one_hot
 
     def forward(self, input1, input2):
         logits = self.seq(input1)
-        if self.training:
+        if self.training and self.use_gumbel:
             mul_matrix = F.gumbel_softmax(
                 logits, tau=self.temperature, hard=self.one_hot
             )
@@ -78,3 +87,19 @@ class UniModalAttention(torch.nn.Module):
         out = input2 * mul_matrix.unsqueeze(dim=1)
         out = out.sum(dim=2)
         return out, mul_matrix
+
+
+class PrototypeAttention(torch.nn.Module):
+    def __init__(self, in_size, out_size, hidden_size=128):
+        super(PrototypeAttention, self).__init__()
+        # in size is number of channels in input feature
+        # out_size is the number of prototypes to sample from
+        self.seq = nn.Sequential(
+            nn.Linear(in_size, hidden_size), nn.ReLU(), nn.Linear(hidden_size, out_size)
+        )
+
+    def _create_prototypes(self):
+        pass
+
+    def forward(self, input1, input2):
+        pass
