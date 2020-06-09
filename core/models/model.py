@@ -77,7 +77,6 @@ class TBNModel(nn.Module):
                         use_gumbel=cfg.model.attention.use_gumbel,
                         temperature=1,
                         one_hot=True,
-                        device=device,
                     )
                 elif self.attention_type == "proto":
                     self.attention_layer = PrototypeAttention(
@@ -86,6 +85,7 @@ class TBNModel(nn.Module):
                         hidden_size=256,
                         use_gumbel=cfg.model.attention.use_gumbel,
                         temperature=1,
+                        device=device,
                     )
             self.add_module(
                 "fusion", Fusion(in_features, 512, dropout=cfg.model.fusion_dropout)
