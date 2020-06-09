@@ -1,3 +1,5 @@
+import cv2
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -90,16 +92,50 @@ class UniModalAttention(torch.nn.Module):
 
 
 class PrototypeAttention(torch.nn.Module):
-    def __init__(self, in_size, out_size, hidden_size=128):
+    def __init__(
+        self,
+        in_size,
+        win_size,
+        hidden_size=256,
+        use_gumbel=True,
+        temperature=1,
+        device=torch.device("cuda"),
+    ):
         super(PrototypeAttention, self).__init__()
         # in size is number of channels in input feature
-        # out_size is the number of prototypes to sample from
+        self.in_size = in_size
+        self.win_size = win_size
+        self.use_gumbel = use_gumbel
+        self.temperature = temperature
+        self.device = device
+
+        self._create_prototype_weights()
+        no_prototypes = self.prototype_wts.shape[0]
+
         self.seq = nn.Sequential(
-            nn.Linear(in_size, hidden_size), nn.ReLU(), nn.Linear(hidden_size, out_size)
+            nn.Linear(in_size, hidden_size),
+            nn.ReLU(),
+            nn.Linear(hidden_size, no_prototypes),
         )
 
-    def _create_prototypes(self):
-        pass
+    def _create_prototype_weights(self):
+        proto_wt1 = cv2.getGaussianKernel(self.win_size, sigma=1)
+        shift = self.win_size // 2 - 2
+        proto_wt2 = np.roll(proto_wt1, -shift)
+        proto_wt3 = np.roll(proto_wt1, shift)
+        prototype_wts = np.concatenate((proto_wt1, proto_wt2, proto_wt3), axis=1).T
+        prototype_wts = torch.from_numpy(prototype_wts).float().to(self.device)
+        self.register_buffer("prototype_wts", prototype_wts)
 
     def forward(self, input1, input2):
-        pass
+        logits = self.seq(input1)
+        if self.training and self.use_gumbel:
+            mul_matrix = F.gumbel_softmax(logits, tau=self.temperature, hard=True)
+        else:
+            mul_matrix = F.softmax(logits, dim=1)
+        # calculate weighted multiplier over the prototype weights
+        attention_wts = torch.matmul(mul_matrix, self.prototype_wts)
+        # calculate weighted sum over the feature matrix
+        out = input2 * attention_wts.unsqueeze(dim=1)
+        out = out.sum(dim=2)
+        return out, attention_wts

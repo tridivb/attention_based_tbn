@@ -9,7 +9,12 @@ from torch.distributions import Categorical
 from .vgg import VGG
 from .resnet import Resnet
 from .bn_inception import bninception
-from .attention import PositionalEncoding, SoftAttention, UniModalAttention
+from .attention import (
+    PositionalEncoding,
+    SoftAttention,
+    UniModalAttention,
+    PrototypeAttention,
+)
 
 
 class TBNModel(nn.Module):
@@ -68,10 +73,19 @@ class TBNModel(nn.Module):
                     self.attention_layer = UniModalAttention(
                         1024,
                         attn_win_size,
-                        use_gumbel=cfg.model.attention.use_gumbel,
                         hidden_size=256,
+                        use_gumbel=cfg.model.attention.use_gumbel,
                         temperature=1,
                         one_hot=True,
+                        device=device,
+                    )
+                elif self.attention_type == "proto":
+                    self.attention_layer = PrototypeAttention(
+                        1024,
+                        attn_win_size,
+                        hidden_size=256,
+                        use_gumbel=cfg.model.attention.use_gumbel,
+                        temperature=1,
                     )
             self.add_module(
                 "fusion", Fusion(in_features, 512, dropout=cfg.model.fusion_dropout)
@@ -211,7 +225,7 @@ class TBNModel(nn.Module):
                             features[0].unsqueeze(0), feature, feature
                         )
                         feature = feature.squeeze(0)
-                    elif self.attention_type == "unimodal":
+                    elif self.attention_type in ["unimodal", "proto"]:
                         # first input is rgb features, second is audio feature
                         feature, att_wts = self.attention_layer(
                             features[0], feature.squeeze(2)
