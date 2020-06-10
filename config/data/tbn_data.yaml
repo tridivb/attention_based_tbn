@@ -24,6 +24,7 @@ data:
     audio_length: 2.1
     spec_type: "stft"
     file_ext: "wav"
+    dropout: 0
   vid_fps: 60
   train_scale_size: 256
   train_crop_size: 224

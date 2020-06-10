@@ -38,6 +38,7 @@ class TBNModel(nn.Module):
         self.num_classes = cfg.model.num_classes
         self.use_attention = cfg.model.attention.enable
         self.attention_type = cfg.model.attention.type
+        self.device = device
 
         if cfg.model.agg_type.lower() == "avg":
             self.agg_type = "avg"
@@ -210,7 +211,14 @@ class TBNModel(nn.Module):
             base_model = getattr(self, "Base_{}".format(m))
             feature = base_model(input[m].view(b * n, c, h, w))
             if m == "Audio":
-                if self.use_attention:
+                if (
+                    self.training
+                    and len(self.modality) > 1
+                    and np.random.uniform() > self.cfg.data.audio.dropout
+                ):
+                    # drop audio feature
+                    feature = torch.zeros_like(features[0]).to(self.device)
+                elif self.use_attention:
                     if self.cfg.model.attention.use_fixed:
                         feature = feature.squeeze(2) * input["weights"].view(
                             b * n, -1
