@@ -214,6 +214,7 @@ class TBNModel(nn.Module):
                 if (
                     self.training
                     and len(self.modality) > 1
+                    and self.cfg.data.audio.dropout > 0
                     and np.random.uniform() > self.cfg.data.audio.dropout
                 ):
                     # drop audio feature
@@ -320,6 +321,13 @@ class TBNModel(nn.Module):
                 loss["total"] += contrast_multiplier * loss["contrast"]
             if self.cfg.model.attention.use_entropy:
                 loss["entropy"] = Categorical(probs=wts + 1e-6).entropy().mean()
+                # if the loss minimization goes below threshold, stop training with entropy loss
+                if (
+                    self.training
+                    and entropy_multiplier > 0
+                    and loss["entropy"] < self.cfg.model.attention.entropy_thresh
+                ):
+                    entropy_multiplier = 0
                 loss["total"] += entropy_multiplier * loss["entropy"]
 
         return loss, batch_size
