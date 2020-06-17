@@ -155,9 +155,9 @@ class Video_Dataset(Dataset):
 
         indices = OrderedDict()
         for m_no, m in enumerate(self.modality):
-            # Select synchronous indices if sampling type is TSN
-            # Select asynchronous indices if sampling type is TBN and mode is train
-            if m_no > 0 and self.cfg.data.sampling == "tsn":
+            # Select synchronous indices if sampling type is sync
+            # Select asynchronous indices if sampling type is async and mode is train
+            if m_no > 0 and self.cfg.data.sampling == "sync":
                 indices[m] = indices[self.modality[0]]
                 if m == "Flow":
                     indices[m] = (indices[m] / 2).astype(np.int64)

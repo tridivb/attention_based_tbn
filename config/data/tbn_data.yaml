@@ -1,7 +1,7 @@
 # dataset parameters
 data:
   dataset: "epic"
-  sampling: "tsn"
+  sampling: "sync"
   rgb:
     enable: True
     dir_prefix: "links"

@@ -206,7 +206,7 @@ class TBNModel(nn.Module):
         Forward pass
         """
         features = []
-        for m in self.modality:
+        for m_no, m in enumerate(self.modality):
             b, n, c, h, w = input[m].shape
             base_model = getattr(self, "Base_{}".format(m))
             feature = base_model(input[m].view(b * n, c, h, w))
@@ -239,7 +239,7 @@ class TBNModel(nn.Module):
                         feature, att_wts = self.attention_layer(
                             features[0], feature.squeeze(2)
                         )
-                if features[0].shape[0] > feature.shape[0]:
+                if m_no > 0 and features[0].shape[0] > feature.shape[0]:
                     new_size = features[0].shape[0] // feature.shape[0]
                     feature = feature.repeat(new_size, 1)
                     # since for audio there is no 10 crop, adjust the number of segments
