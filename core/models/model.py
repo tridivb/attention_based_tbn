@@ -160,7 +160,7 @@ class TBNModel(nn.Module):
             print("Freezing the Base model.")
             for param in getattr(self, "Base_{}".format(modality)).parameters():
                 param.requires_grad = False
-        elif freeze_mode == "partialbn":
+        elif freeze_mode == "partialbn" and self.base_model_name == "bninception":
             print(
                 "Freezing the batchnorms of Base Model {} except first or new layers.".format(
                     modality
