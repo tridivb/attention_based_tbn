@@ -124,7 +124,11 @@ class PrototypeAttention(torch.nn.Module):
         proto_wt2 = np.roll(proto_wt1, -shift)
         proto_wt3 = np.roll(proto_wt1, shift)
         prototype_wts = np.concatenate((proto_wt1, proto_wt2, proto_wt3), axis=1).T
-        prototype_wts = torch.from_numpy(prototype_wts).float().to(self.device)
+        prototype_wts = nn.Parameter(
+            torch.from_numpy(prototype_wts).float().to(self.device)
+        )
+        prototype_wts.requires_grad = True
+
         self.register_buffer("prototype_wts", prototype_wts)
 
     def forward(self, input1, input2):
