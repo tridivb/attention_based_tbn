@@ -59,12 +59,12 @@ class TBNModel(nn.Module):
             if self.use_attention and not self.cfg.model.attention.use_fixed:
                 anchor = 25 / 4
                 attn_win_size = round(self.cfg.data.audio.audio_length * anchor)
+                self.pe = nn.Sequential(
+                    PositionalEncoding(10, max_len=attn_win_size, device=device),
+                    nn.Conv1d(1034, 1024, kernel_size=1),
+                    nn.GroupNorm(64, 1024),
+                )
                 if self.attention_type == "soft":
-                    self.pe = nn.Sequential(
-                        PositionalEncoding(10, max_len=attn_win_size, device=device),
-                        nn.Conv1d(1034, 1024, kernel_size=1),
-                        nn.GroupNorm(64, 1024),
-                    )
                     self.attention_layer = SoftAttention(
                         1024,
                         cfg.model.attention.attn_heads,
