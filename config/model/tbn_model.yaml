@@ -3,6 +3,7 @@ model:
   arch: "bninception"
   attention:
     enable: True
+    use_pe: true
     type: "soft"
     use_gumbel: True
     use_fixed: False
