@@ -2,6 +2,7 @@ data:
   audio:
     audio_length: 2.1
     dir_prefix: audio_pickle
+    dropout: 0.5
     enable: true
     file_ext: wav
     read_audio_pickle: true
@@ -31,7 +32,7 @@ data:
     - 1.0
     - 1.0
     - 1.0
-  sampling: tbn
+  sampling: sync
   test_crop_size: 224
   test_scale_size: 256
   train_crop_size: 224
@@ -52,10 +53,13 @@ model:
     entropy_decay: 0.25
     loss_reduction: batchmean
     prior_type: gaussian
+    type: soft
     use_contrast: false
     use_entropy: true
     use_fixed: false
+    use_gumbel: true
     use_prior: false
+    use_pe: true
     wt_decay: 0.25
     wt_loss: kl
   checkpoint_dir: tbn_weights
