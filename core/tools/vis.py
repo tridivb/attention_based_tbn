@@ -17,7 +17,14 @@ from tqdm import tqdm
 from core.models import build_model
 from core.dataset import Video_Dataset, EpicClasses
 from core.utils import get_modality
-from core.dataset.transform import *
+from core.dataset.transform import (
+    Rescale,
+    CenterCrop,
+    Stack,
+    ToTensor,
+    Normalize,
+    TransferTensorDict,
+)
 
 
 def get_info(model, dataset, epic_classes, device):
@@ -71,7 +78,7 @@ def get_info(model, dataset, epic_classes, device):
             data_dict["pred_noun"].append(pred_noun)
             if "weights" in out.keys():
                 b = 1
-                n, _, _ = out["weights"].shape
+                n = out["weights"].shape[0]
                 weights = out["weights"].view(b * n, -1)
                 entropy = (-1 * (weights * torch.log(weights + 1e-6)).sum(1)).mean()
                 data_dict["entropy"].append(entropy.item())
@@ -107,7 +114,7 @@ def save_action_segment(data_dir, vid_id, start_time, stop_time):
     video.close()
 
 
-def visualize(cfg, model, dataset, index, epic_classes, device):
+def visualize(cfg, model, criterion, dataset, index, epic_classes, device):
     """
     Helper function to visualize frames, audio spectrograms, predicted attention weights and class predictions
     Args
@@ -129,11 +136,19 @@ def visualize(cfg, model, dataset, index, epic_classes, device):
     dict_to_device = TransferTensorDict(device)
     data, target, _ = default_collate([dataset[index - 1]])
     rgb_indices = data["indices"]["RGB"].numpy().squeeze()
-    spec = data["Audio"]
+    #     data["RGB"].requires_grad = True
+    #     data["Audio"].requires_grad = True
+    spec = data["Audio"].detach()
     data = dict_to_device(data)
+    target = dict_to_device(target)
     model.eval()
-    with torch.no_grad():
-        out = model(data)
+    out = model(data)
+    #     loss, _ = model.get_loss(criterion, target, out, 50)
+    #     loss["total"].backward()
+    #     print(loss)
+    #     rgb_grad = data["RGB"].grad
+    #     audio_grad = data["Audio"].grad
+    #     print(data["RGB"].requires_grad, data["Audio"].requires_grad, rgb_grad, audio_grad)
 
     verb_preds = out["verb"].softmax(dim=1).topk(5, 1, largest=True, sorted=True)
     noun_preds = out["noun"].softmax(dim=1).topk(5, 1, largest=True, sorted=True)
@@ -155,7 +170,11 @@ def visualize(cfg, model, dataset, index, epic_classes, device):
     noun_scores = [noun_scores] + noun_preds.values.squeeze().tolist()
 
     if "weights" in out.keys():
-        weights = out["weights"].cpu().numpy()
+        weights = out["weights"].detach()
+        if len(weights.shape) == 2:
+            weights = weights.unsqueeze(1)
+        weights = weights.cpu().numpy()
+        # adhoc fix to visualize prototype and unimodal weights
     else:
         # in case of model without attention use dummy weights
         weights = np.zeros((cfg.test.num_segments, 1, 25))
@@ -323,7 +342,7 @@ def initialize(config_file):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     print("Initializing model...")
-    model, _, num_gpus = build_model(cfg, modality, device)
+    model, criterion, num_gpus = build_model(cfg, modality, device)
     print("Model initialized.")
     print("----------------------------------------------------------")
 
@@ -342,4 +361,4 @@ def initialize(config_file):
 
     epic_classes = EpicClasses(os.path.join(cfg.data_dir, "annotations"))
 
-    return cfg, model, epic_classes, device
+    return cfg, model, criterion, epic_classes, device

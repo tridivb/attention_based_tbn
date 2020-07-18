@@ -103,6 +103,82 @@ class CenterCrop(object):
         return out_images
 
 
+class FixedCrop(object):
+    """
+    Location based multi Crop of an image
+
+    Args
+    ----------
+    size: int, tuple
+        Crop size
+    locations: list
+        List of locations
+    horizontal_flip: bool
+        Flag to set horizontal flipping of images    
+    """
+
+    def __init__(self, size, locations=[0, 1, 2, 3, 4], horizontal_flip=False):
+        assert isinstance(size, (int, tuple))
+
+        if isinstance(size, int):
+            self.size = (size, size)
+        else:
+            assert len(size) == 2
+            self.size = size
+
+        # locations of the crops 0 - center, 1 - top left,
+        # 2 - top right, 3 - bottom left, 4 - bottom right
+        self.locations = locations
+
+        self.horizontal_flip = horizontal_flip
+
+    def __call__(self, img_list):
+        """
+        Args
+        ----------
+        img_list: list
+            List of input images
+
+        Returns
+        ----------
+        out_images: list
+            List of cropped output images
+
+        """
+
+        assert isinstance(img_list, list)
+        h, w = self.size
+        out_images = []
+
+        for location in self.locations:
+            for img in img_list:
+                if location == 0:
+                    # center
+                    x1 = (img.shape[1] - w) // 2
+                    y1 = (img.shape[0] - h) // 2
+                elif location == 1:
+                    # top left
+                    x1 = y1 = 0
+                elif location == 2:
+                    # top right
+                    x1 = img.shape[1] - w
+                    y1 = 0
+                elif location == 3:
+                    # bottom left
+                    x1 = 0
+                    y1 = img.shape[0] - h
+                elif location == 4:
+                    # bottom right
+                    x1 = img.shape[1] - w
+                    y1 = img.shape[0] - h
+                temp_img = img[y1 : y1 + h, x1 : x1 + w]
+                out_images.extend([temp_img])
+                if self.horizontal_flip:
+                    out_images.extend([np.fliplr(temp_img).copy()])
+
+        return out_images
+
+
 class RandomHorizontalFlip(object):
     """
     Randomly horizontally flips the given Image with a probability

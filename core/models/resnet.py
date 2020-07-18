@@ -40,4 +40,5 @@ class Resnet(nn.Module):
 
     def forward(self, input):
         feat = self.model(input)
+        feat = feat.view(feat.size(0), -1)
         return feat

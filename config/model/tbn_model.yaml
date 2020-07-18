@@ -3,6 +3,9 @@ model:
   arch: "bninception"
   attention:
     enable: True
+    use_pe: true
+    type: "soft"
+    use_gumbel: True
     use_fixed: False
     prior_type: "gaussian"
     attn_heads: 4
@@ -16,6 +19,7 @@ model:
     contrast_decay: 0.25
     use_entropy: False
     entropy_decay: 0.25
+    entropy_thresh: 0.2
     decay_step: 10
   resnet:
     depth: 101
@@ -23,7 +27,8 @@ model:
     type: "16"
   freeze_base: True
   freeze_mode: "partialbn"
-  num_classes: { verb: 125, noun: 352, action: 2513 }
+  num_classes: { verb: 125, noun: 352 }
+  # num_classes: { verb: 125, noun: 352, action: 2513 }
   agg_type: "avg"
   fusion_dropout: 0.5
   loss_fn: "crossentropy"

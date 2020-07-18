@@ -1,7 +1,7 @@
 # dataset parameters
 data:
   dataset: "epic"
-  sampling: "tsn"
+  sampling: "sync"
   rgb:
     enable: True
     dir_prefix: "links"
@@ -21,9 +21,10 @@ data:
     read_audio_pickle: True
     dir_prefix: "audio_pickle"
     sampling_rate: 24000
-    audio_length: 4.0
+    audio_length: 2.1
     spec_type: "stft"
     file_ext: "wav"
+    dropout: 0
   vid_fps: 60
   train_scale_size: 256
   train_crop_size: 224

@@ -9,7 +9,12 @@ from torch.distributions import Categorical
 from .vgg import VGG
 from .resnet import Resnet
 from .bn_inception import bninception
-from .attention import PositionalEncoding, AttentionLayer
+from .attention import (
+    PositionalEncoding,
+    SoftAttention,
+    UniModalAttention,
+    PrototypeAttention,
+)
 
 
 class TBNModel(nn.Module):
@@ -32,6 +37,8 @@ class TBNModel(nn.Module):
         self.base_model_name = cfg.model.arch
         self.num_classes = cfg.model.num_classes
         self.use_attention = cfg.model.attention.enable
+        self.attention_type = cfg.model.attention.type
+        self.device = device
 
         if cfg.model.agg_type.lower() == "avg":
             self.agg_type = "avg"
@@ -52,16 +59,36 @@ class TBNModel(nn.Module):
             if self.use_attention and not self.cfg.model.attention.use_fixed:
                 anchor = 25 / 4
                 attn_win_size = round(self.cfg.data.audio.audio_length * anchor)
-                self.pe = nn.Sequential(
-                    PositionalEncoding(10, max_len=attn_win_size, device=device),
-                    nn.Conv1d(1034, 1024, kernel_size=1),
-                    nn.GroupNorm(64, 1024),
-                )
-                self.attention_layer = AttentionLayer(
-                    1024,
-                    cfg.model.attention.attn_heads,
-                    cfg.model.attention.attn_dropout,
-                )
+                if self.cfg.model.attention.use_pe:
+                    self.pe = nn.Sequential(
+                        PositionalEncoding(10, max_len=attn_win_size, device=device),
+                        nn.Conv1d(1034, 1024, kernel_size=1),
+                        nn.GroupNorm(64, 1024),
+                    )
+                if self.attention_type == "soft":
+                    self.attention_layer = SoftAttention(
+                        1024,
+                        cfg.model.attention.attn_heads,
+                        cfg.model.attention.attn_dropout,
+                    )
+                elif self.attention_type == "unimodal":
+                    self.attention_layer = UniModalAttention(
+                        1024,
+                        attn_win_size,
+                        hidden_size=256,
+                        use_gumbel=cfg.model.attention.use_gumbel,
+                        temperature=1,
+                        one_hot=True,
+                    )
+                elif self.attention_type == "proto":
+                    self.attention_layer = PrototypeAttention(
+                        1024,
+                        attn_win_size,
+                        hidden_size=256,
+                        use_gumbel=cfg.model.attention.use_gumbel,
+                        temperature=1,
+                        device=device,
+                    )
             self.add_module(
                 "fusion", Fusion(in_features, 512, dropout=cfg.model.fusion_dropout)
             )
@@ -134,7 +161,7 @@ class TBNModel(nn.Module):
             print("Freezing the Base model.")
             for param in getattr(self, "Base_{}".format(modality)).parameters():
                 param.requires_grad = False
-        elif freeze_mode == "partialbn":
+        elif freeze_mode == "partialbn" and self.base_model_name == "bninception":
             print(
                 "Freezing the batchnorms of Base Model {} except first or new layers.".format(
                     modality
@@ -168,7 +195,7 @@ class TBNModel(nn.Module):
             for key in scores.keys():
                 # Reshape the tensor to B x N x feature size,
                 # before calculating the mean over the trimmed action segment
-                # where B = batch size and N = number of segment
+                # where B = batch size and N = number of segments
                 scores[key] = scores[key].view(new_shape).mean(dim=1)
         else:
             scores = scores[key].view(new_shape).mean(dim=1)
@@ -180,23 +207,45 @@ class TBNModel(nn.Module):
         Forward pass
         """
         features = []
-        for m in self.modality:
+        for m_no, m in enumerate(self.modality):
             b, n, c, h, w = input[m].shape
             base_model = getattr(self, "Base_{}".format(m))
             feature = base_model(input[m].view(b * n, c, h, w))
-            if m == "Audio" and self.use_attention:
-                if self.cfg.model.attention.use_fixed:
-                    feature = feature.squeeze(2) * input["weights"].view(
-                        b * n, -1
-                    ).unsqueeze(1)
-                    feature = feature.sum(2)
-                else:
-                    feature = self.pe(feature)
-                    feature = feature.transpose(1, 2).transpose(0, 1)
-                    feature, att_wts = self.attention_layer(
-                        features[0].unsqueeze(0), feature, feature
-                    )
-                    feature = feature.squeeze(0)
+            if m == "Audio":
+                if (
+                    self.training
+                    and len(self.modality) > 1
+                    and self.cfg.data.audio.dropout > 0
+                    and np.random.uniform() > self.cfg.data.audio.dropout
+                ):
+                    # drop audio feature
+                    feature = torch.zeros_like(features[0]).to(self.device)
+                elif self.use_attention:
+                    if self.cfg.model.attention.use_fixed:
+                        feature = feature.squeeze(2) * input["weights"].view(
+                            b * n, -1
+                        ).unsqueeze(1)
+                        feature = feature.sum(2)
+                    elif self.attention_type == "soft":
+                        feature = self.pe(feature)
+                        feature = feature.transpose(1, 2).transpose(0, 1)
+                        # query is rgb feature, key and value are audio feature
+                        # idea is to attend on audio using the rgb feature
+                        feature, att_wts = self.attention_layer(
+                            features[0].unsqueeze(0), feature, feature
+                        )
+                        feature = feature.squeeze(0)
+                    elif self.attention_type in ["unimodal", "proto"]:
+                        # first input is rgb features, second is audio feature
+                        feature, att_wts = self.attention_layer(
+                            features[0], feature.squeeze(2)
+                        )
+                if m_no > 0 and features[0].shape[0] > feature.shape[0]:
+                    new_size = features[0].shape[0] // feature.shape[0]
+                    feature = feature.repeat(new_size, 1)
+                    # since for audio there is no 10 crop, adjust the number of segments
+                    # as num_segments * number of crops during validation/testing
+                    n *= new_size
             features.extend([feature])
         features = torch.cat(features, dim=1)
 
@@ -273,6 +322,13 @@ class TBNModel(nn.Module):
                 loss["total"] += contrast_multiplier * loss["contrast"]
             if self.cfg.model.attention.use_entropy:
                 loss["entropy"] = Categorical(probs=wts + 1e-6).entropy().mean()
+                # if the loss minimization goes below threshold, stop training with entropy loss
+                if (
+                    self.training
+                    and entropy_multiplier > 0
+                    and loss["entropy"] < self.cfg.model.attention.entropy_thresh
+                ):
+                    entropy_multiplier = 0
                 loss["total"] += entropy_multiplier * loss["entropy"]
 
         return loss, batch_size

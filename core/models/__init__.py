@@ -1,4 +1,9 @@
-from .attention import PositionalEncoding, AttentionLayer
+from .attention import (
+    PositionalEncoding,
+    SoftAttention,
+    UniModalAttention,
+    PrototypeAttention,
+)
 from .bn_inception import bninception
 from .dataparallel import DataParallel
 from .model_builder import build_model

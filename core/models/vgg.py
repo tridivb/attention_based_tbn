@@ -12,13 +12,13 @@ class VGG(nn.Module):
     def __init__(self, model_type, modality, in_channels):
         super(VGG, self).__init__()
 
-        if model_type == "16":
+        if str(model_type) == "16":
             self.model = models.vgg16(pretrained=True)
-        elif model_type == "16bn":
+        elif str(model_type) == "16bn":
             self.model = models.vgg16_bn(pretrained=True)
-        elif model_type == "11":
+        elif str(model_type) == "11":
             self.model = models.vgg11(pretrained=True)
-        elif model_type == "11bn":
+        elif str(model_type) == "11bn":
             self.model = models.vgg11_bn(pretrained=True)
 
         if modality != "RGB":
@@ -37,4 +37,5 @@ class VGG(nn.Module):
 
     def forward(self, input):
         feat = self.model(input)
+        feat = feat.view(feat.size(0), -1)
         return feat
