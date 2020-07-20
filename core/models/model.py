@@ -54,7 +54,7 @@ class TBNModel(nn.Module):
             if cfg.model.freeze_base:
                 self._freeze_base_model(m, freeze_mode=cfg.model.freeze_mode)
 
-        # Create fusion layer (if applicable) and final linear classificatin layer
+        # Create fusion layer (if applicable) and final linear classification layer
         if len(self.modality) > 1:
             if self.use_attention and not self.cfg.model.attention.use_fixed:
                 anchor = 25 / 4

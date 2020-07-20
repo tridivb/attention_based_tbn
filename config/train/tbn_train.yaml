@@ -1,6 +1,7 @@
 # train parameters
 train:
   enable: True
+  # annotation file for epic kitchens training
   annotation_file: "annotations/epic_train_val.csv"
   vid_list: "data/train_split_seen.txt"
   batch_size: 12

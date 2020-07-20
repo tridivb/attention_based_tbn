@@ -110,6 +110,5 @@ venv.bak/
 .vscode
 log/
 jobs/
-config/.local/
-weights/
 *.MP4
+*.zip
