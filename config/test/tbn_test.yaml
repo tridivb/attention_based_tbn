@@ -1,6 +1,7 @@
 # test parameters
 test:
   enable: False
+  # annotation file names for epic kitchens seen and unseen test sets
   annotation_file: ["annotations/EPIC_test_s1_timestamps.csv", "annotations/EPIC_test_s2_timestamps.csv"]
   vid_list: ""
   batch_size: 2

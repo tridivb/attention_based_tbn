@@ -65,16 +65,19 @@ def create_split(args):
     train_list = []
     val_list = []
 
+    if ars.mode not in ["seen", "unseen"]:
+        raise Exception("Unknown split mode. Please choose seen or unseen")
+
     for p_id in df.participant_id.unique():
         data = df.query("participant_id == @p_id")
         vid_ids = list(data.video_id.unique())
         # Randomly choose one video from each person for the validation set
-        if args.mode == "random":
+        if args.mode == "seen":
             random.shuffle(vid_ids)
             train_list.extend(vid_ids[:-1])
             val_list.append(vid_ids[-1])
         # All videos of persons from P25 are held out for validation
-        elif args.mode == "epic":
+        elif args.mode == "unseen":
             if p_id < "P25":
                 train_list.extend(vid_ids)
             else:

@@ -9,17 +9,17 @@ data:
     mean: [0.408, 0.459, 0.502]
     std: [1.0, 1.0, 1.0]
   flow:
-    enable: False
-    read_flow_pickle: True
-    dir_prefix: "flow_pickle"
+    enable: True
+    read_flow_pickle: False
+    dir_prefix: "links"
     file_ext: "jpg"
     win_length: 5
     mean: [0.502]
     std: [1.0]
   audio:
     enable: True
-    read_audio_pickle: True
-    dir_prefix: "audio_pickle"
+    read_audio_pickle: False
+    dir_prefix: "audio"
     sampling_rate: 24000
     audio_length: 2.1
     spec_type: "stft"

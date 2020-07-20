@@ -4,13 +4,16 @@ pandas
 scipy
 opencv-python
 librosa==0.7.2
+# pin numba for librosa 0.7.2
 numba==0.48
+# pin omegaconf for use with hydra 0.11
 omegaconf==1.4.1
 hydra-core==0.11
 torch==1.4
 torchvision==0.5
 pretrainedmodels
 tensorboardX
+# visualization module requirements
 moviepy
 jupyterlab
 ipywidgets

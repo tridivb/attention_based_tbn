@@ -27,6 +27,7 @@ model:
     type: "16"
   freeze_base: True
   freeze_mode: "partialbn"
+  # verb and noun classes for epic kitchens
   num_classes: { verb: 125, noun: 352 }
   # num_classes: { verb: 125, noun: 352, action: 2513 }
   agg_type: "avg"
