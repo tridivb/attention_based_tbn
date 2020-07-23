@@ -543,8 +543,8 @@ class Video_Dataset(Dataset):
         if prior_type == "gaussian":
             # Unimodal Gaussian wights
             gt_attn_wts = cv2.getGaussianKernel(win_size, sigma=1)
-        elif prior_type == "equal":
-            # Normalized equal attention weights
+        elif prior_type == "uniform":
+            # Normalized uniform attention weights
             gt_attn_wts = np.ones((win_size, 1), dtype=np.float32) / win_size
         elif prior_type == "loud":
             no_of_modes = 1

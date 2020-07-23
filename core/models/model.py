@@ -11,7 +11,7 @@ from .resnet import Resnet
 from .bn_inception import bninception
 from .attention import (
     PositionalEncoding,
-    SoftAttention,
+    MultiheadedAttention,
     UniModalAttention,
     PrototypeAttention,
 )
@@ -65,8 +65,8 @@ class TBNModel(nn.Module):
                         nn.Conv1d(1034, 1024, kernel_size=1),
                         nn.GroupNorm(64, 1024),
                     )
-                if self.attention_type == "soft":
-                    self.attention_layer = SoftAttention(
+                if self.attention_type == "mha":
+                    self.attention_layer = MultiheadedAttention(
                         1024,
                         cfg.model.attention.attn_heads,
                         cfg.model.attention.attn_dropout,
@@ -226,7 +226,7 @@ class TBNModel(nn.Module):
                             b * n, -1
                         ).unsqueeze(1)
                         feature = feature.sum(2)
-                    elif self.attention_type == "soft":
+                    elif self.attention_type == "mha":
                         feature = self.pe(feature)
                         feature = feature.transpose(1, 2).transpose(0, 1)
                         # query is rgb feature, key and value are audio feature

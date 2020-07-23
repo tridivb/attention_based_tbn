@@ -45,9 +45,9 @@ class PositionalEncoding(nn.Module):
             return x
 
 
-class SoftAttention(torch.nn.Module):
+class MultiheadedAttention(torch.nn.Module):
     def __init__(self, embed_dim, num_heads, dropout=0.0):
-        super(SoftAttention, self).__init__()
+        super(MultiheadedAttention, self).__init__()
         self.attention_layer = torch.nn.MultiheadAttention(
             embed_dim, num_heads, dropout=dropout, bias=True
         )

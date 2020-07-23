@@ -7,6 +7,6 @@ test:
   batch_size: 2
   topk: [1, 5]
   num_segments: 25
-  save_results: True
+  save_results: False
   results_file: ["seen.json", "unseen.json"]
   pre_trained: ""
