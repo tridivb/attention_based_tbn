@@ -1,6 +1,6 @@
 from .attention import (
     PositionalEncoding,
-    SoftAttention,
+    MultiheadedAttention,
     UniModalAttention,
     PrototypeAttention,
 )

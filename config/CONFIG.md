@@ -117,8 +117,8 @@ model:
     enable: True
     # flag for positional encoding layer
     use_pe: true
-    # type of attention. choose between "soft" (multi-headed), "unimodal" and "proto" (prototype)
-    type: "soft"
+    # type of attention. choose between "mha" (multi-headed), "unimodal" and "proto" (prototype)
+    type: "mha"
     # flag to turn on/off using gumble-softmax during training
     use_gumbel: True
     # flag to use fixed attention instead of learnable ones

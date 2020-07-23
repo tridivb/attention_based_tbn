@@ -4,7 +4,7 @@ model:
   attention:
     enable: True
     use_pe: true
-    type: "soft"
+    type: "mha"
     use_gumbel: True
     use_fixed: False
     prior_type: "gaussian"
