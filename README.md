@@ -81,7 +81,7 @@ The list of configuration parameters can be found at [CONFIG.md](config/CONFIG.m
 ## Using the framework
 The code to train/test models can be executed by running the [main.py](main.py). It will initialize the configuration parameters and then run the tasks as required. The configurations can be also set from the command line. Please look at the list of configuration parameters and the hydra documentation on how to do this.
 
-The visualization module is provided as a Jupyter Notebook. Since it uses ipywidgets and qgrid, please make sure they are installed and enable before running the visualization module.
+The visualization module is provided as a Jupyter Notebook. Since it uses ipywidgets and qgrid, please make sure they are installed and enabled before running the visualization module.
 
 ## Training
 
@@ -154,9 +154,9 @@ python main.py model.train.enable=False model.attention.enable=True model.attent
 
 Our best action score on the test server submissions was achieved by a model trained over all modalities with an additional action class. Please look at the thesis (Section 7.5) for more details on this. Our final scores placed us 8-th in the public leaderboard for Epic-Kitchens Action Recogntion challenge.
 
-![Seen Kitchens][results/S1.png]
+![Seen Kitchens](results/S1.png)
 
-![Unseen Kitchens][results/S2.png]
+![Unseen Kitchens](results/S2.png)
 
 ## Visualization Module
 
