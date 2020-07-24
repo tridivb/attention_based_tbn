@@ -1,6 +1,8 @@
 # Attention based Temporal Binding Network
 
-This work is part of my Master Thesis titled "A Study of Audio effectiveness for Action Recognition from egocentric videos". The complete writeup can be found at [thesis/Master_Thesis.pdf](thesis/Master_Thesis.pdf).
+This is a framework to train single-modal and multi-modal networks for action recognition from videos using 2D CNNs. We provide a wide-range of configuration parameters which allow experimenting with various settings. The data sampling is done by segmenting action clips and then aggregating their scores to predict the final class over the whole clip. The framework is able to both synchronously and asynchronously sample the data during training.
+
+For a more detailed overview, you can take a look at my Master Thesis titled "A Study of Audio effectiveness for Action Recognition from egocentric videos". The complete writeup can be found at [thesis/Master_Thesis.pdf](thesis/Master_Thesis.pdf).
 
 ## Getting Started
 Clone the repo and set it up in your local drive
