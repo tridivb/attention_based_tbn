@@ -1,6 +1,6 @@
 # Attention based Temporal Binding Network
 
-This is a framework to train single-modal and multi-modal networks for action recognition from videos using 2D CNNs. We provide a wide-range of configuration parameters which allow experimenting with various settings. The data sampling is done by segmenting action clips and then aggregating their scores to predict the final class over the whole clip. The framework is able to both synchronously and asynchronously sample the data during training.
+This is a framework to train single-modal and multi-modal networks for action recognition from videos using 2D CNNs with mid-level fusion. The backbone is same as the Temporal Binding Network. We provide a wide-range of configuration parameters which allow experimenting with various settings. The data sampling is done by segmenting action clips and then aggregating their scores to predict the final class over the whole clip. The framework is able to both synchronously and asynchronously sample the data during training.
 
 For a more detailed overview, you can take a look at my Master Thesis titled "A Study of Audio effectiveness for Action Recognition from egocentric videos". The complete writeup can be found at [thesis/Master_Thesis.pdf](thesis/Master_Thesis.pdf).
 
